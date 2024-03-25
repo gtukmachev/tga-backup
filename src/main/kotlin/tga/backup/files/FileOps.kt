@@ -1,5 +1,6 @@
 package tga.backup.files
 
+import tga.backup.log.logWrap
 import java.io.File
 
 class FileOps {
@@ -19,13 +20,13 @@ class FileOps {
             val srcFileOrFolder = File("${srcFolder}${filesSeparator}${filePath}")
             val dstFileOrFolder = File("${dstFolder}${filesSeparator}${filePath}")
             if (srcFileOrFolder.isDirectory) {
-                print("creating folder: ${dstFileOrFolder.path}...")
-                if (!dryRun) dstFileOrFolder.mkdirs()
-                println("ok")
+                logWrap("creating folder: ${dstFileOrFolder.path}...") {
+                    if (!dryRun) dstFileOrFolder.mkdirs()
+                }
             } else {
-                print("copying        : ${dstFileOrFolder.path}.........")
-                if (!dryRun) srcFileOrFolder.copyTo(dstFileOrFolder)
-                println("ok")
+                logWrap("copying        : ${dstFileOrFolder.path}.........") {
+                    if (!dryRun) srcFileOrFolder.copyTo(dstFileOrFolder)
+                }
             }
         }
     }
@@ -36,19 +37,12 @@ class FileOps {
             val dstFileOrFolder = File("${dstFolder}${filesSeparator}${filePath}")
             val fType = if (dstFileOrFolder.isDirectory) "folder" else "file"
 
-            print("deleting $fType: ${dstFileOrFolder.path}...")
-            try {
+            logWrap("deleting $fType: ${dstFileOrFolder.path}...", eatErrors = true) {
                 if (!dryRun) dstFileOrFolder.delete()
-                print("...ok")
-            } catch (t: Throwable) {
-                print("...${t.toLog()}")
-            } finally {
-                println()
             }
+
         }
     }
-
-    private fun Throwable.toLog() = "${this::class.java.simpleName}: '${this.message}'"
 
     private fun File.listFilesRecursive(outSet: MutableSet<String>, path: String): Set<String> {
         val content = this.listFiles()!!
