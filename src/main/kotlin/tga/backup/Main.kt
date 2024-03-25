@@ -25,10 +25,27 @@ fun main(args: Array<String>) {
 
     logFilesList("To Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", toCopy)
     logFilesList("To Delete (in '${params.dstFolder}')", toDelete)
+
+    println("\nCopying:....")
+    try {
+        fileOps.copyFiles(params.srcFolder, toCopy, params.dstFolder, params.dryRun)
+    } finally {
+        println(".... Copying is finished\n")
+    }
+
+    println("\nDeleting:....")
+    try {
+        fileOps.deleteFiles(toDelete, params.dstFolder, params.dryRun)
+    } finally {
+        println(".... Deleting is finished\n")
+    }
+
 }
 
 fun logFilesList(prefix: String, filesList: Set<String>) {
-    if (filesList.isEmpty()) { println("$prefix: <EMPTY>"); return }
-    println("$prefix: \n${filesList.sorted().joinToString(separator = "\n")}\n")
-
+    if (filesList.isEmpty()) {
+        println("$prefix: <EMPTY>");
+    } else {
+        println("$prefix: \n${filesList.sorted().joinToString(separator = "\n")}\n")
+    }
 }
