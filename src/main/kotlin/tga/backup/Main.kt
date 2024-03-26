@@ -1,5 +1,6 @@
 package tga.backup
 
+import tga.backup.files.FileInfo
 import tga.backup.files.FileOps
 import tga.backup.logo.printLogo
 import tga.backup.params.Params
@@ -40,11 +41,11 @@ fun main(args: Array<String>) {
     }
 
     runCopying(params, toCopy)
-    runDeleting(params,  toDelete)
+    runDeleting(params, toDelete)
 
 }
 
-fun runCopying(params: Params, toCopy: Set<String>) {
+fun runCopying(params: Params, toCopy: Set<FileInfo>) {
     println("\nCopying:....")
     try {
         if (toCopy.isNotEmpty())
@@ -55,7 +56,7 @@ fun runCopying(params: Params, toCopy: Set<String>) {
 }
 
 
-fun runDeleting(params: Params, toDelete: Set<String>) {
+fun runDeleting(params: Params, toDelete: Set<FileInfo>) {
     println("\nDeleting:....")
     try {
         if (toDelete.isNotEmpty())
@@ -66,10 +67,14 @@ fun runDeleting(params: Params, toDelete: Set<String>) {
 }
 
 
-fun logFilesList(prefix: String, filesList: Set<String>) {
+fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
     if (filesList.isEmpty()) {
         println("$prefix: <EMPTY>");
     } else {
-        println("$prefix: \n${filesList.sorted().joinToString(separator = "\n")}")
+        println("$prefix: \n")
+        for (f in filesList.sorted()) {
+            print("[${f.sizeReadable(10)}] ")
+            println(f.name)
+        }
     }
 }
