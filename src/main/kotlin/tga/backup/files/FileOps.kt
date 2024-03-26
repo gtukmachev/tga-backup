@@ -13,7 +13,7 @@ class FileOps {
         return File(root).listFilesRecursive(outSet, "")
     }
 
-    fun copyFiles(srcFolder: String, filesList: Set<String>, dstFolder: String, dryRun: Boolean) {
+    fun copyFiles(srcFolder: String, filesList: Iterable<String>, dstFolder: String, dryRun: Boolean) {
         val sortedFilesList = filesList.sorted()
 
         for (filePath in sortedFilesList) {
@@ -31,7 +31,7 @@ class FileOps {
         }
     }
 
-    fun deleteFiles(filesList: Set<String>, dstFolder: String, dryRun: Boolean) {
+    fun deleteFiles(filesList: Iterable<String>, dstFolder: String, dryRun: Boolean) {
         val sortedFilesList = filesList.sortedDescending()
         for (filePath in sortedFilesList) {
             val dstFileOrFolder = File("${dstFolder}${filesSeparator}${filePath}")
