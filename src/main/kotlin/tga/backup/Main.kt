@@ -1,4 +1,4 @@
-package tga.backup.tga.backup
+package tga.backup
 
 import tga.backup.files.FileOps
 import tga.backup.logo.printLogo
