@@ -1,13 +1,14 @@
 package tga.backup
 
 import tga.backup.files.FileInfo
-import tga.backup.files.FileOps
+import tga.backup.files.LocalFileOps
+import tga.backup.files.buildFileOpsByURL
 import tga.backup.logo.printLogo
 import tga.backup.params.Params
 import tga.backup.params.readParams
 import java.io.File
 
-val fileOps = FileOps()
+val fileOps = LocalFileOps()
 
 fun main(args: Array<String>) {
     printLogo()
@@ -16,10 +17,13 @@ fun main(args: Array<String>) {
     println("Current folder = '${File(".").canonicalFile.path}'")
     println(params)
 
-    val srcFiles = fileOps.getFilesSet(params.srcFolder)
+    val srcFileOps = buildFileOpsByURL(params.srcFolder, params)
+    val dstFileOps = buildFileOpsByURL(params.dstFolder, params)
+
+    val srcFiles =  srcFileOps.getFilesSet(params.srcFolder)
     if (params.showSource) logFilesList("Source", srcFiles)
 
-    val dstFiles = fileOps.getFilesSet(params.dstFolder)
+    val dstFiles =  dstFileOps.getFilesSet(params.dstFolder)
     if (params.showDestination) logFilesList("Destination", dstFiles)
 
     val toCopy = srcFiles - dstFiles

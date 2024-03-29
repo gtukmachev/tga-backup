@@ -6,6 +6,8 @@ data class Params(
     val dryRun: Boolean,
     val showSource: Boolean,
     val showDestination: Boolean,
+    val yandexUser: String? = null,
+    val yandexToken: String? = null,
 )
 
 fun Array<String>.readParams() = Params(
@@ -14,6 +16,8 @@ fun Array<String>.readParams() = Params(
     dryRun = getBoolArg("--dry-run"),
     showSource      = getBoolArg("--verbose") || getBoolArg("--show-src"),
     showDestination = getBoolArg("--verbose") || getBoolArg("--show-dst"),
+    yandexUser = getArgOptional("-yu") ?: System.getenv("BACKUP_YANDEX_USER"),
+    yandexToken = getArgOptional("-yt") ?: System.getenv("BACKUP_YANDEX_TOKEN"),
 )
 
 fun Array<String>.getArg(arg: String): String = getArgOptional(arg) ?: throw ArgumentIsMissed(arg)
