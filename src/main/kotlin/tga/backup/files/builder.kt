@@ -13,6 +13,6 @@ fun buildFileOpsByURL(url: String, params: Params): FileOps {
 }
 
 fun buildYandexClient(params: Params): RestClient {
-    val credentials: Credentials = Credentials(params.yandexUser, params.yandexToken)
+    val credentials = Credentials(params.yandexUser, params.yandexToken)
     return RestClient(credentials, OkHttpClientFactory.makeClient() )
 }

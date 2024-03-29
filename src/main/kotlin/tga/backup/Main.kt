@@ -72,7 +72,7 @@ fun runDeleting(dstFileOps: FileOps, params: Params, toDelete: Set<FileInfo>) {
 
 fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
     if (filesList.isEmpty()) {
-        println("$prefix: <EMPTY>");
+        println("$prefix: <EMPTY>")
     } else {
         println("$prefix: \n")
         val l = filesList.size.toString().length
