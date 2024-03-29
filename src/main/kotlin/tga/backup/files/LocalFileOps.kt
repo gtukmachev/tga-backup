@@ -1,45 +1,28 @@
 package tga.backup.files
 
-import tga.backup.log.logWrap
 import java.io.File
 
-class LocalFileOps : FileOps {
+class LocalFileOps : FileOps(File.separator) {
 
-    private val filesSeparator = File.separatorChar
 
     override fun getFilesSet(rootPath: String): Set<FileInfo> {
         if (!File(rootPath).exists()) return emptySet()
         return File(rootPath).listFilesRecursive(HashSet(), "")
     }
 
-    fun copyFiles(srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean) {
-        val sortedFilesList = filesList.sorted()
+    override fun mkDirs(dirPath: String) {
+        File(dirPath).mkdirs()
+    }
 
-        for (fileInfo in sortedFilesList) {
-            val srcFileOrFolder = File("${srcFolder}${filesSeparator}${fileInfo.name}")
-            val dstFileOrFolder = File("${dstFolder}${filesSeparator}${fileInfo.name}")
-            if (fileInfo.isDirectory) {
-                logWrap("creating folder: ${dstFileOrFolder.path}...") {
-                    if (!dryRun) dstFileOrFolder.mkdirs()
-                }
-            } else {
-                logWrap("copying        : ${dstFileOrFolder.path}.........") {
-                    if (!dryRun) srcFileOrFolder.copyTo(dstFileOrFolder)
-                }
-            }
+    override fun copyFile(from: String,  to: String, srcFileOps: FileOps) {
+        when (srcFileOps) {
+            is LocalFileOps -> File(from).copyTo(File(to))
+            else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
 
-    fun deleteFiles(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean) {
-        val sortedFilesList = filesList.sortedDescending()
-        for (fileInfo in sortedFilesList) {
-            val dstFileOrFolder = File("${dstFolder}${filesSeparator}${fileInfo.name}")
-            val fType = if (dstFileOrFolder.isDirectory) "folder" else "file"
-
-            logWrap("deleting $fType: ${dstFileOrFolder.path}...", eatErrors = true) {
-                if (!dryRun) dstFileOrFolder.delete()
-            }
-        }
+    override fun deleteFileOrFolder(path: String) {
+        File(path).delete()
     }
 
     private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String): Set<FileInfo> {
