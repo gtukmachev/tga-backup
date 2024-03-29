@@ -25,30 +25,27 @@ fun main(args: Array<String>) {
     val srcFiles =  srcFileOps.getFilesSet(params.srcFolder)
     if (params.showSource) logFilesList("Source", srcFiles)
 
-    val dstFiles =  dstFileOps.getFilesSet(params.dstFolder)
+    val rootDstFolder =  FileInfo("", true, 10L)
+    val dstFiles = dstFileOps.getFilesSet(params.dstFolder) - rootDstFolder
     if (params.showDestination) logFilesList("Destination", dstFiles)
 
     val toCopy = srcFiles - dstFiles
     val toDelete = dstFiles - srcFiles
 
     if (toCopy.isEmpty() && toDelete.isEmpty()) {
-        println("The destination folder is in sync with the source one.")
+        logger.warn { "The source and destination are already exactly the same. No actions required." }
+        return
     }
 
     logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", toCopy)
     logFilesList("\nTo Delete (in '${params.dstFolder}')", toDelete)
 
-    if (toCopy.isNotEmpty() || toDelete.isNotEmpty()) {
-        print("Continue (Y/N)?>")
-        val continueAnswer = readln()
-        if (continueAnswer !in setOf("Y", "y")) return
+    print("Continue (Y/N)?>")
+    val continueAnswer = readln()
+    if (continueAnswer !in setOf("Y", "y")) return
 
-        runCopying(srcFileOps, dstFileOps, params, toCopy)
-        runDeleting(dstFileOps, params, toDelete)
-    } else {
-        logger.warn { "The source and destination are already exactly the same. No actions required." }
-    }
-
+    runCopying(srcFileOps, dstFileOps, params, toCopy)
+    runDeleting(dstFileOps, params, toDelete)
 }
 
 fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy: Set<FileInfo>) {

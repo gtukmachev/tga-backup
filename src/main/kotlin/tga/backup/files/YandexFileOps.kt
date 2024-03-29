@@ -12,39 +12,64 @@ class YandexFileOps(
 ) : FileOps(filesSeparator = "/") {
 
     override fun getFilesSet(rootPath: String): Set<FileInfo> {
+        print("\nLoading files tree from yandex disk:")
+
+        val fullRootPath = rootPath.removePrefix("yandex://")
+        val fullRootPathPrefix = "/$fullRootPath"
         val files: MutableSet<FileInfo> = HashSet()
+        val backspacesLine = "\b".repeat(12)
+        val numLen = backspacesLine.length
+        print(" " + " ".repeat(numLen))
+
+        fun printFilesSize() {
+            val filesNumberStr = "${files.size}".padEnd(numLen)
+            print(backspacesLine)
+            print(filesNumberStr)
+        }
 
         fun readFilesSetRecursively(path: String) {
             val resource = getYandexFolderWithItemsInside(path) ?: return
-            files += resource.toFileInfo()
+            files += resource.toFileInfo(fullRootPathPrefix)
+            printFilesSize()
 
             resource.resourceList.items.forEach {
                 when {
                     it.isDir -> readFilesSetRecursively(it.path.path)
-                    else -> files += it.toFileInfo()
+                    else -> {
+                        files += it.toFileInfo(fullRootPathPrefix)
+                        printFilesSize()
+                    }
                 }
             }
         }
 
-        readFilesSetRecursively(rootPath.removePrefix("yandex://"))
+        readFilesSetRecursively(fullRootPath)
+        println(" ...done")
 
         return files
     }
 
     override fun mkDirs(dirPath: String) {
-        TODO("Not yet implemented")
+        try {
+            yandex.makeFolder(dirPath.toYandexPath())
+        } catch (e: HttpCodeException) {
+            when {
+                (e.response.error == "DiskPathPointsToExistentDirectoryError") -> { /* dir already exists */ }
+                else -> throw e
+            }
+        }
     }
 
     override fun copyFile(from: String, to: String, srcFileOps: FileOps) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(from, to, srcFileOps)
+            is LocalFileOps -> uploadToYandex(from, to)
             else -> CopyDirectionIsNotSupportedYet()
         }
     }
 
     override fun deleteFileOrFolder(path: String) {
         val notPermanently = false
-        yandex.delete(path, notPermanently)
+        yandex.delete(path.toYandexPath(), notPermanently)
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,13 +90,17 @@ class YandexFileOps(
         }
     }
 
-    private fun Resource.toFileInfo(): FileInfo {
-        return FileInfo(this.path.path, this.isDir, this.size)
+    private fun Resource.toFileInfo(commonPrefix: String): FileInfo {
+        return FileInfo(
+            name = this.path.path.removePrefix(commonPrefix).removePrefix("/"),
+            isDirectory = this.isDir,
+            size = if (this.isDir) 10L else this.size
+        )
     }
 
-    private fun uploadToYandex(from: String, to: String, srcFileOps: LocalFileOps) {
+    private fun uploadToYandex(from: String, to: String) {
         val doNotOverride = false // `true` means "override", false - don't override
-        val uploadUrl = yandex.getUploadLink(to, doNotOverride)
+        val uploadUrl = yandex.getUploadLink(to.toYandexPath(), doNotOverride)
         yandex.uploadFile(uploadUrl, false, File(from), PrintStatusListener())
     }
 
@@ -89,5 +118,7 @@ class YandexFileOps(
 
         override fun hasCancelled(): Boolean = false // todo: implement gracefully cancellation
     }
+
+    private fun String.toYandexPath() = this.removePrefix("yandex://")
 
 }

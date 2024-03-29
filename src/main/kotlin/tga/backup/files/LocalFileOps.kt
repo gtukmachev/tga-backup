@@ -2,7 +2,7 @@ package tga.backup.files
 
 import java.io.File
 
-class LocalFileOps : FileOps(File.separator) {
+class LocalFileOps : FileOps("/") {
 
 
     override fun getFilesSet(rootPath: String): Set<FileInfo> {
