@@ -75,8 +75,9 @@ fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
         println("$prefix: <EMPTY>");
     } else {
         println("$prefix: \n")
-        for (f in filesList.sorted()) {
-            print("[${f.sizeReadable(10)}] ")
+        val l = filesList.size.toString().length
+        filesList.sorted().forEachIndexed { i, f ->
+            print("${i.toString().padStart(l)}. [${f.sizeReadable(6)}] ")
             println(f.name)
         }
     }
