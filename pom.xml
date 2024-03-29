@@ -21,7 +21,9 @@
 
     <dependencies>
         <dependency> <artifactId>kotlin-stdlib</artifactId><groupId>org.jetbrains.kotlin</groupId><version>1.9.22</version> </dependency>
-        <dependency> <artifactId>disk-restapi-sdk</artifactId> <groupId>com.yandex.android</groupId> <version>1.03</version> </dependency>
+        <dependency> <artifactId>kotlin-logging-jvm</artifactId><groupId>io.github.oshai</groupId><version>6.0.3</version></dependency>
+        <dependency> <artifactId>logback-classic</artifactId><groupId>ch.qos.logback</groupId><version>1.5.3</version> </dependency>
+        <dependency> <artifactId>disk-restapi-sdk</artifactId> <groupId>com.yanYdex.android</groupId> <version>1.03</version> </dependency>
 
         <dependency> <artifactId>kotlin-test-junit5</artifactId><groupId>org.jetbrains.kotlin</groupId><version>1.9.22</version><scope>test</scope> </dependency>
         <dependency> <artifactId>junit-jupiter-engine</artifactId><groupId>org.junit.jupiter</groupId><version>5.10.0</version><scope>test</scope> </dependency>

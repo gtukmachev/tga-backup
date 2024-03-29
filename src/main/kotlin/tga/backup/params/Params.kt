@@ -8,7 +8,22 @@ data class Params(
     val showDestination: Boolean,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
-)
+) {
+
+    override fun toString(): String {
+        return """
+                    |Params(
+                    |   srcFolder='$srcFolder',
+                    |   dstFolder='$dstFolder',
+                    |   dryRun=$dryRun,
+                    |   showSource=$showSource,
+                    |   showDestination=$showDestination,
+                    |   yandexUser='$yandexUser',
+                    |   yandexToken='${yandexToken?.let{"***"} ?: ""}'
+                    |)
+                """.trimMargin()
+    }
+}
 
 fun Array<String>.readParams() = Params(
     srcFolder = getArg("-s"),
