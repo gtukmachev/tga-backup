@@ -5,11 +5,14 @@ import com.yandex.disk.rest.ResourcesArgs
 import com.yandex.disk.rest.RestClient
 import com.yandex.disk.rest.exceptions.http.HttpCodeException
 import com.yandex.disk.rest.json.Resource
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
 
 class YandexFileOps(
     private val yandex: RestClient
 ) : FileOps(filesSeparator = "/") {
+
+    private val logger = KotlinLogging.logger {  }
 
     override fun getFilesSet(rootPath: String): Set<FileInfo> {
         print("\nLoading files tree from yandex disk:")
@@ -99,9 +102,13 @@ class YandexFileOps(
     }
 
     private fun uploadToYandex(from: String, to: String) {
-        val doNotOverride = false // `true` means "override", false - don't override
-        val uploadUrl = yandex.getUploadLink(to.toYandexPath(), doNotOverride)
-        yandex.uploadFile(uploadUrl, false, File(from), PrintStatusListener())
+        try {
+            val doNotOverride = false // `true` means "override", false - don't override
+            val uploadUrl = yandex.getUploadLink(to.toYandexPath(), doNotOverride)
+            yandex.uploadFile(uploadUrl, false, File(from), PrintStatusListener())
+        } catch (e: Exception) {
+            logger.error(e) {  }
+        }
     }
 
 
@@ -113,7 +120,10 @@ class YandexFileOps(
             val totalFloat = total.toFloat()
             val prcNow = loadedFloat / totalFloat
             val prcPrev = previousLoaded / totalFloat
-            if ( (prcNow - prcPrev) >= 2.0) print(".")
+            if ( (prcNow - prcPrev) >= 0.02) {
+                previousLoaded = loadedFloat
+                print(".")
+            }
         }
 
         override fun hasCancelled(): Boolean = false // todo: implement gracefully cancellation

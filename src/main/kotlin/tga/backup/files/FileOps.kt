@@ -18,7 +18,7 @@ abstract class FileOps(
                     if (!dryRun) mkDirs(dstPath)
                 }
             } else {
-                logWrap("copying        : $dstPath") {
+                logWrap("copying        : $dstPath", eatErrors = true) {
                     if (!dryRun) copyFile(srcPath, dstPath, srcFileOps)
                 }
             }

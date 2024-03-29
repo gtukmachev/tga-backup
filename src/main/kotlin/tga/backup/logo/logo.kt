@@ -2,7 +2,7 @@ package tga.backup.logo
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 
-val log = KotlinLogging.logger { }
+private val log = KotlinLogging.logger { }
 
 fun printLogo() {
     log.info {
