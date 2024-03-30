@@ -7,6 +7,7 @@ abstract class FileOps(
 ) {
     // Interface part
     abstract fun getFilesSet(rootPath: String): Set<FileInfo> // platform specific
+
     fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean) {
         val sortedFilesList = filesList.sorted()
 
@@ -23,7 +24,9 @@ abstract class FileOps(
                 }
             }
         }
+
     }
+
     fun deleteFiles(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean) {
         val sortedFilesList = filesList.sortedDescending()
         for (fileInfo in sortedFilesList) {
