@@ -53,7 +53,7 @@ class YandexFileOps(
                             .setPath(path)
                             .setLimit(maxPageSize)
                             .setOffset(offset)
-                            .setFields("name,type,path,size,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.total")
+                            .setFields("name,type,path,size,md5,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.items.md5,_embedded.total")
                             .build()
 
                         val resource = yandex.getResources(req)
@@ -131,14 +131,15 @@ class YandexFileOps(
         return FileInfo(
             name = this.path.path.removePrefix(commonPrefix).removePrefix("/"),
             isDirectory = this.isDir,
-            size = if (this.isDir) 10L else this.size
+            size = if (this.isDir) 10L else this.size,
+            md5 = this.md5
         )
     }
 
     private fun uploadToYandex(from: String, to: String) {
         try {
-            val doNotOverride = false // `true` means "override", false - don't override
-            val uploadUrl = yandex.getUploadLink(to.toYandexPath(), doNotOverride)
+            val overwrite = true
+            val uploadUrl = yandex.getUploadLink(to.toYandexPath(), overwrite)
             yandex.uploadFile(uploadUrl, false, File(from), PrintStatusListener())
         } catch (e: Exception) {
             logger.error(e) {  }
