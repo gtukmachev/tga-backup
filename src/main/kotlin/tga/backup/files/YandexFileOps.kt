@@ -10,7 +10,7 @@ import java.io.File
 
 class YandexFileOps(
     private val yandex: RestClient,
-    val maxPageSize: Long  = 5000
+    val maxPageSize: Int  = 5000
 ) : FileOps(filesSeparator = "/") {
 
     private val logger = KotlinLogging.logger {  }
@@ -93,7 +93,7 @@ class YandexFileOps(
             }
         }
 
-        if (yandexDiskItems.size == maxPageSize) {
+        if (yandexDiskItems.size == maxPageSize.toLong()) {
             throw Exception("Yandex disk folder contains more than $maxPageSize items")
         }
 
