@@ -93,7 +93,7 @@ class YandexFileOps(
             }
         }
 
-        if (yandexDiskItems.size == maxPageSize.toLong()) {
+        if (yandexDiskItems != null && yandexDiskItems.size == maxPageSize.toLong()) {
             throw Exception("Yandex disk folder contains more than $maxPageSize items")
         }
 
