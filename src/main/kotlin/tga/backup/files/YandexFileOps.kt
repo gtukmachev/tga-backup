@@ -9,7 +9,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
 
 class YandexFileOps(
-    private val yandex: RestClient
+    private val yandex: RestClient,
+    val maxPageSize: Long  = 5000
 ) : FileOps(filesSeparator = "/") {
 
     private val logger = KotlinLogging.logger {  }
@@ -80,10 +81,10 @@ class YandexFileOps(
     private fun getYandexFolderWithItemsInside(path: String): Resource? {
         val req = ResourcesArgs.Builder()
             .setPath(path)
-            .setLimit(5000)
+            .setLimit(maxPageSize)
             .build()
 
-        return try {
+        val yandexDiskItems = try {
             yandex.getResources(req)
         } catch (err: HttpCodeException) {
             when (err.code) {
@@ -91,6 +92,12 @@ class YandexFileOps(
                 else -> throw err
             }
         }
+
+        if (yandexDiskItems.size == maxPageSize) {
+            throw Exception("Yandex disk folder contains more than $maxPageSize items")
+        }
+
+        return yandexDiskItems
     }
 
     private fun Resource.toFileInfo(commonPrefix: String): FileInfo {
