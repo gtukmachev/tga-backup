@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import tga.backup.files.FileInfo
 import tga.backup.files.FileOps
 import tga.backup.files.buildFileOpsByURL
+import tga.backup.files.compareSrcAndDst
 import tga.backup.logo.printLogo
 import tga.backup.params.Params
 import tga.backup.params.readParams
@@ -30,37 +31,43 @@ fun main(args: Array<String>) {
     val dstFiles = dstFileOps.getFilesSet(params.dstFolder) - rootDstFolder
     if (params.showDestination) logFilesList("Destination", dstFiles)
 
-    val toCopy = srcFiles - dstFiles
-    val toDelete = dstFiles - srcFiles
+    val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles)
 
-    if (toCopy.isEmpty() && toDelete.isEmpty()) {
-        logger.warn { "The source and destination are already exactly the same. No actions required." }
+    if (actions.toAddFiles.isEmpty() && actions.toDeleteFiles.isEmpty() && actions.toOverrideFiles.isEmpty()) {
+        logger.info { "The source and destination are already exactly the same. No actions required." }
         return
     }
 
-    logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", toCopy)
-    logFilesList("\nTo Delete (in '${params.dstFolder}')", toDelete)
+    logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toAddFiles)
+    logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
+    logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
 
     print("Continue (Y/N)?>")
     val continueAnswer = readln()
     if (continueAnswer !in setOf("Y", "y")) return
 
-    runCopying(srcFileOps, dstFileOps, params, toCopy)
-    runDeleting(dstFileOps, params, toDelete)
+    runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
+    runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+    runDeleting(dstFileOps, params, actions.toDeleteFiles)
 }
 
-fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy: Set<FileInfo>) {
-    println("\nCopying:....")
+fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy: Set<FileInfo>, override: Boolean) {
+    if (toCopy.isEmpty()) return
+
+    val actionName = if (override) "Overriding" else "Copying"
+    println("\n$actionName:....")
     try {
         if (toCopy.isNotEmpty())
-            dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun)
+            dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override)
     } finally {
-        println(".... Copying is finished\n")
+        println(".... $actionName is finished\n")
     }
 }
 
 
 fun runDeleting(dstFileOps: FileOps, params: Params, toDelete: Set<FileInfo>) {
+    if (toDelete.isEmpty()) return
+
     println("\nDeleting:....")
     try {
         if (toDelete.isNotEmpty())
@@ -73,7 +80,7 @@ fun runDeleting(dstFileOps: FileOps, params: Params, toDelete: Set<FileInfo>) {
 
 fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
     if (filesList.isEmpty()) {
-        println("$prefix: <EMPTY>")
+        // println("$prefix: <EMPTY>")
     } else {
         println("$prefix: \n")
         val l = filesList.size.toString().length

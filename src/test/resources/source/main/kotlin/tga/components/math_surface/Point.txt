@@ -3,7 +3,7 @@ package tga.components.math_surface
 import kotlin.math.sqrt
 
 /**
- * Mutable data class.
+ * Sutable data class.
  * Provides a way to describe a function using pure mathematical syntax, like: `y = f(x)`.
  *
  * Example:

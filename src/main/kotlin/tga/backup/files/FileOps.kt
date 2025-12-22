@@ -8,7 +8,7 @@ abstract class FileOps(
     // Interface part
     abstract fun getFilesSet(rootPath: String): Set<FileInfo> // platform specific
 
-    fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean) {
+    fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false) {
         val sortedFilesList = filesList.sorted()
 
         for (fileInfo in sortedFilesList) {
@@ -19,8 +19,9 @@ abstract class FileOps(
                     if (!dryRun) mkDirs(dstPath)
                 }
             } else {
-                logWrap("copying        : $dstPath", eatErrors = true) {
-                    if (!dryRun) copyFile(srcPath, dstPath, srcFileOps)
+                val action = if (override) "overriding" else "copying   "
+                logWrap("$action     : $dstPath", eatErrors = true) {
+                    if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override)
                 }
             }
         }
@@ -41,7 +42,7 @@ abstract class FileOps(
 
     // platform specific implementation part
     protected abstract fun mkDirs(dirPath: String)
-    protected abstract fun copyFile(from: String,  to: String, srcFileOps: FileOps)
+    protected abstract fun copyFile(from: String,  to: String, srcFileOps: FileOps, override: Boolean)
     protected abstract fun deleteFileOrFolder(path: String)
 
 }

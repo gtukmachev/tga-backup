@@ -112,10 +112,10 @@ class YandexFileOps(
         }
     }
 
-    override fun copyFile(from: String, to: String, srcFileOps: FileOps) {
+    override fun copyFile(from: String, to: String, srcFileOps: FileOps, override: Boolean) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(from, to)
-            else -> CopyDirectionIsNotSupportedYet()
+            is LocalFileOps -> uploadToYandex(from, to, override)
+            else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
 
@@ -136,10 +136,9 @@ class YandexFileOps(
         )
     }
 
-    private fun uploadToYandex(from: String, to: String) {
+    private fun uploadToYandex(from: String, to: String, override: Boolean) {
         try {
-            val overwrite = true
-            val uploadUrl = yandex.getUploadLink(to.toYandexPath(), overwrite)
+            val uploadUrl = yandex.getUploadLink(to.toYandexPath(), override)
             yandex.uploadFile(uploadUrl, false, File(from), PrintStatusListener())
         } catch (e: Exception) {
             logger.error(e) {  }
