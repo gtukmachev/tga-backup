@@ -12,6 +12,7 @@ import java.io.File
 private val logger = KotlinLogging.logger {  }
 
 fun main(args: Array<String>) {
+    System.setProperty("java.rmi.server.hostname", "localhost")
 
     printLogo()
 

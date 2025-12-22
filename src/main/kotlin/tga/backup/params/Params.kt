@@ -45,4 +45,4 @@ fun Array<String>.getArgOptional(arg: String): String? {
     return get(i + 1)
 }
 
-class ArgumentIsMissed(arg: String) : Exception("Argument $arg expected")
+class ArgumentIsMissed(arg: String) : Exception("Argument $arg is expected!")
