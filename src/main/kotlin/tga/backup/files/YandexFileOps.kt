@@ -7,6 +7,10 @@ import com.yandex.disk.rest.exceptions.http.HttpCodeException
 import com.yandex.disk.rest.json.Resource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.Phaser
+import java.util.concurrent.atomic.AtomicReference
 
 class YandexFileOps(
     private val yandex: RestClient,
@@ -20,34 +24,78 @@ class YandexFileOps(
 
         val fullRootPath = rootPath.removePrefix("yandex://")
         val fullRootPathPrefix = "/$fullRootPath"
-        val files: MutableSet<FileInfo> = HashSet()
+        val files = ConcurrentHashMap.newKeySet<FileInfo>()
         val backspacesLine = "\b".repeat(12)
         val numLen = backspacesLine.length
         print(" " + " ".repeat(numLen))
 
+        val printLock = Any()
         fun printFilesSize() {
-            val filesNumberStr = "${files.size}".padEnd(numLen)
-            print(backspacesLine)
-            print(filesNumberStr)
+            synchronized(printLock) {
+                val filesNumberStr = "${files.size}".padEnd(numLen)
+                print(backspacesLine)
+                print(filesNumberStr)
+            }
         }
 
-        fun readFilesSetRecursively(path: String) {
-            val resource = getYandexFolderWithItemsInside(path) ?: return
-            files += resource.toFileInfo(fullRootPathPrefix)
-            printFilesSize()
+        val executor = Executors.newFixedThreadPool(20)
+        val phaser = Phaser(1)
+        val error = AtomicReference<Throwable?>(null)
 
-            resource.resourceList.items.forEach {
-                when {
-                    it.isDir -> readFilesSetRecursively(it.path.path)
-                    else -> {
-                        files += it.toFileInfo(fullRootPathPrefix)
-                        printFilesSize()
+        fun scan(path: String) {
+            phaser.register()
+            executor.execute {
+                try {
+                    var offset = 0
+                    while (error.get() == null) {
+                        logger.debug { "Fetching folder metadata: $path (offset: $offset)" }
+                        val req = ResourcesArgs.Builder()
+                            .setPath(path)
+                            .setLimit(maxPageSize)
+                            .setOffset(offset)
+                            .setFields("name,type,path,size,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.total")
+                            .build()
+
+                        val resource = yandex.getResources(req)
+
+                        if (offset == 0) {
+                            val fileInfo = resource.toFileInfo(fullRootPathPrefix)
+                            if (fileInfo.name.isNotEmpty()) {
+                                files.add(fileInfo)
+                                printFilesSize()
+                            }
+                        }
+
+                        val resourceList = resource.resourceList
+                        val items = resourceList?.items ?: emptyList()
+
+                        items.forEach {
+                            if (it.isDir) {
+                                scan(it.path.path)
+                            } else {
+                                files.add(it.toFileInfo(fullRootPathPrefix))
+                                printFilesSize()
+                            }
+                        }
+
+                        if (items.size < maxPageSize || (resourceList != null && offset + items.size >= resourceList.total)) break
+                        offset += items.size
                     }
+                } catch (e: HttpCodeException) {
+                    if (e.code != 404) error.compareAndSet(null, e)
+                } catch (e: Throwable) {
+                    error.compareAndSet(null, e)
+                } finally {
+                    phaser.arriveAndDeregister()
                 }
             }
         }
 
-        readFilesSetRecursively(fullRootPath)
+        scan(fullRootPath)
+        phaser.arriveAndAwaitAdvance()
+        executor.shutdown()
+
+        error.get()?.let { throw it }
         println(" ...done")
 
         return files
@@ -78,27 +126,6 @@ class YandexFileOps(
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private fun getYandexFolderWithItemsInside(path: String): Resource? {
-        val req = ResourcesArgs.Builder()
-            .setPath(path)
-            .setLimit(maxPageSize)
-            .build()
-
-        val yandexDiskItems = try {
-            yandex.getResources(req)
-        } catch (err: HttpCodeException) {
-            when (err.code) {
-                404 -> null
-                else -> throw err
-            }
-        }
-
-        if (yandexDiskItems != null && yandexDiskItems.size == maxPageSize.toLong()) {
-            throw Exception("Yandex disk folder contains more than $maxPageSize items")
-        }
-
-        return yandexDiskItems
-    }
 
     private fun Resource.toFileInfo(commonPrefix: String): FileInfo {
         return FileInfo(
