@@ -3,8 +3,8 @@
 #### Main Goal
 The **TGA Backup Utility** is a command-line tool designed to synchronize files and directories between different storage providers. 
 Its primary focus is creating and maintaining backups, but not synchronization:
-  - It synchronize alway to single direction: source to destination;
-  - It does not modify source;
+  - It synchronizes always to a single direction: source to destination;
+  - Important: It does not modify the source; 
   - It compares destination and source, builds plan of actions (copy, override, delete) to minimize traffic;
   - in plans: add detection of files movements (when it was moved from one to another folder in source), to avoid deletion (in destination) and copying to another destination folder.
 
