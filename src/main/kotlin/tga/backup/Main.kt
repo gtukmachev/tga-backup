@@ -1,10 +1,10 @@
 package tga.backup
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import tga.backup.files.FileInfo
-import tga.backup.files.FileOps
-import tga.backup.files.buildFileOpsByURL
-import tga.backup.files.compareSrcAndDst
+import tga.backup.files.*
+import tga.backup.log.alignRight
+import tga.backup.log.formatFileSize
+import tga.backup.log.formatNumber
 import tga.backup.logo.printLogo
 import tga.backup.params.Params
 import tga.backup.params.readParams
@@ -25,11 +25,11 @@ fun main(args: Array<String>) {
     val dstFileOps = buildFileOpsByURL(params.dstFolder, params)
 
     val srcFiles =  srcFileOps.getFilesSet(params.srcFolder)
-    if (params.showSource) logFilesList("Source", srcFiles)
+    if (params.verbose) logFilesList("Source", srcFiles)
 
     val rootDstFolder =  FileInfo("", true, 10L)
     val dstFiles = dstFileOps.getFilesSet(params.dstFolder) - rootDstFolder
-    if (params.showDestination) logFilesList("Destination", dstFiles)
+    if (params.verbose) logFilesList("Destination", dstFiles)
 
     val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles)
 
@@ -41,6 +41,8 @@ fun main(args: Array<String>) {
     logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toAddFiles)
     logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
     logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
+
+    printSummary(actions)
 
     print("Continue (Y/N)?>")
     val continueAnswer = readln()
@@ -83,10 +85,65 @@ fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
         // println("$prefix: <EMPTY>")
     } else {
         println("$prefix: \n")
-        val l = filesList.size.toString().length
+        val l = formatNumber(filesList.size).length
         filesList.sorted().forEachIndexed { i, f ->
-            print("${i.toString().padStart(l)}. [${f.sizeReadable(6)}] ")
+            print("${formatNumber(i).padStart(l)}. [${formatFileSize(f.size, 6)}] ")
             println(f.name)
         }
     }
 }
+
+fun printSummary(actions: SyncActionCases) {
+    val toAddFiles = actions.toAddFiles.filter { !it.isDirectory }
+    val toOverrideFiles = actions.toOverrideFiles.filter { !it.isDirectory }
+    val toDeleteFiles = actions.toDeleteFiles.filter { !it.isDirectory }
+
+    val toAddFolders = actions.toAddFiles.filter { it.isDirectory }
+    val toOverrideFolders = actions.toOverrideFiles.filter { it.isDirectory }
+    val toDeleteFolders = actions.toDeleteFiles.filter { it.isDirectory }
+
+    val (toAddFoldersStr, toOverrideFoldersStr, toDeleteFoldersStr, totalFoldersStr) = alignRight(
+        "Folders count".length,
+        formatNumber(toAddFolders.size),
+        formatNumber(toOverrideFolders.size),
+        formatNumber(toDeleteFolders.size),
+        formatNumber(toAddFolders.size + toOverrideFolders.size),
+
+    )
+
+    val (toAddFilesStr, toOverrideFilesStr, toDeleteFilesStr, totalFilesStr) = alignRight(
+        "Files count".length,
+        formatNumber(toAddFiles.size),
+        formatNumber(toOverrideFiles.size),
+        formatNumber(toDeleteFiles.size),
+        formatNumber(toAddFiles.size + toOverrideFiles.size),
+    )
+
+    val toAddSize       = toAddFiles.sumOf { it.size }
+    val toOverrideSize  = toOverrideFiles.sumOf { it.size }
+    val toDeleteSize    = toDeleteFiles.sumOf { it.size }
+
+    val (toAddSizeStr, toOverrideSizeStr, toDeleteSizeStr, totalSizeStr) = alignRight(
+        "Total Size".length,
+        formatFileSize(toAddSize),
+        formatFileSize(toOverrideSize),
+        formatFileSize(toDeleteSize),
+        formatFileSize(toAddSize + toOverrideSize),
+    )
+
+    val lineStr = "-".repeat("| Action    |  |  |  |".length + toAddFoldersStr.length + toAddFilesStr.length + toAddSizeStr.length)
+
+    println("\nSummary:")
+    println(lineStr)
+    println("| Action    | Folders count | Files count | Total Size |")
+    println(lineStr)
+    println("| Copy      | $toAddFoldersStr | $toAddFilesStr | $toAddSizeStr |")
+    println("| Override  | $toOverrideFoldersStr | $toOverrideFilesStr | $toOverrideSizeStr |")
+    println(lineStr)
+    println("| To upload | $totalFoldersStr | $totalFilesStr | $totalSizeStr |")
+    println(lineStr)
+    println("| To Delete | $toDeleteFoldersStr | $toDeleteFilesStr | $toDeleteSizeStr |")
+    println(lineStr)
+    println("")
+}
+

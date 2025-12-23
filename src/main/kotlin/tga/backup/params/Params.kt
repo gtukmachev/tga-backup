@@ -4,8 +4,7 @@ data class Params(
     val srcFolder: String,
     val dstFolder: String,
     val dryRun: Boolean,
-    val showSource: Boolean,
-    val showDestination: Boolean,
+    val verbose: Boolean,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
 ) {
@@ -16,8 +15,7 @@ data class Params(
                     |   srcFolder='$srcFolder',
                     |   dstFolder='$dstFolder',
                     |   dryRun=$dryRun,
-                    |   showSource=$showSource,
-                    |   showDestination=$showDestination,
+                    |   verbose=$verbose,
                     |   yandexUser='$yandexUser',
                     |   yandexToken='${yandexToken?.let{"***"} ?: ""}'
                     |)
@@ -29,8 +27,7 @@ fun Array<String>.readParams() = Params(
     srcFolder = getArg("-s"),
     dstFolder = getArg("-d"),
     dryRun = getBoolArg("--dry-run"),
-    showSource      = getBoolArg("--verbose") || getBoolArg("--show-src"),
-    showDestination = getBoolArg("--verbose") || getBoolArg("--show-dst"),
+    verbose = getBoolArg("--verbose"),
     yandexUser = getArgOptional("-yu") ?: System.getenv("BACKUP_YANDEX_USER"),
     yandexToken = getArgOptional("-yt") ?: System.getenv("BACKUP_YANDEX_TOKEN"),
 )

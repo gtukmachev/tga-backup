@@ -16,3 +16,44 @@ fun <T> logWrap(prefix: String, eatErrors: Boolean = false, body: () -> T): T? {
 
 fun Throwable.toLog() = "${this::class.java.simpleName}: '${this.message}'"
 
+fun formatNumber(number: Number): String {
+    val s = number.toString()
+    val sb = StringBuilder()
+    for (i in s.indices) {
+        sb.append(s[i])
+        val posFromEnd = s.length - i - 1
+        if (posFromEnd > 0 && posFromEnd % 3 == 0) {
+            sb.append("`")
+        }
+    }
+    return sb.toString()
+}
+
+private const val GB: Long = 1024 * 1024 * 1024
+private const val MB: Long = 1024 * 1024
+private const val KB: Long = 1024
+
+fun formatFileSize(size: Long, minLength: Int? = null): String {
+    val strSize =  when {
+        size > GB -> "${formatNumber(size / GB)} g"
+        size > MB -> "${formatNumber(size / MB)} m"
+        size > KB -> "${formatNumber(size / KB)} k"
+        else -> "${formatNumber(size)} b"
+    }
+
+    return when {
+        (minLength != null && strSize.length < minLength) -> strSize.padStart(minLength)
+        else -> strSize
+    }
+
+}
+
+fun alignRight(minLength: Int, vararg strs: String): Array<String> {
+    val maxLen = maxOf(minLength, strs.maxOf { it.length })
+    return strs
+        .map { it.padStart(maxLen) }
+        .toTypedArray()
+}
+
+fun formatNumbersAndAlignRight(minLength: Int, vararg nums: Number) = alignRight(minLength, *nums.map { formatNumber(it) }.toTypedArray())
+
