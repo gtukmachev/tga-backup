@@ -20,7 +20,7 @@ abstract class FileOps(
                 }
             } else {
                 val action = if (override) "overriding" else "copying   "
-                logWrap("$action     : $dstPath", eatErrors = true) {
+                logWrap("$action : $dstPath", eatErrors = true) {
                     if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override)
                 }
             }
