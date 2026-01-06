@@ -6,9 +6,13 @@ import java.security.MessageDigest
 class LocalFileOps : FileOps("/") {
 
 
-    override fun getFilesSet(rootPath: String): Set<FileInfo> {
-        if (!File(rootPath).exists()) return emptySet()
-        return File(rootPath).listFilesRecursive(HashSet(), "")
+    override fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
+        val rootFile = File(rootPath)
+        if (!rootFile.exists()) {
+            if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $rootPath")
+            return emptySet()
+        }
+        return rootFile.listFilesRecursive(HashSet(), "")
     }
 
     override fun mkDirs(dirPath: String) {

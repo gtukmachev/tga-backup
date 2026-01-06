@@ -19,7 +19,7 @@ class YandexFileOps(
 
     private val logger = KotlinLogging.logger {  }
 
-    override fun getFilesSet(rootPath: String): Set<FileInfo> {
+    override fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
         print("\nLoading files tree from yandex disk:")
 
         val fullRootPath = rootPath.removePrefix("yandex://")
@@ -56,7 +56,18 @@ class YandexFileOps(
                             .setFields("name,type,path,size,md5,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.items.md5,_embedded.total")
                             .build()
 
-                        val resource = yandex.getResources(req)
+                        val resource = try {
+                            yandex.getResources(req)
+                        } catch (e: HttpCodeException) {
+                            if (path == fullRootPath && e.code == 404) {
+                                if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $path", e)
+                                return@execute
+                            }
+                            if (e.code != 404) error.compareAndSet(null, e)
+                            null
+                        }
+
+                        if (resource == null) break
 
                         if (offset == 0) {
                             val fileInfo = resource.toFileInfo(fullRootPathPrefix)
