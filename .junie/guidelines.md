@@ -42,7 +42,13 @@ The project follows a clean, modular structure under the `tga.backup` package:
    - `builder.kt`: Factory for creating the appropriate `FileOps` instance based on the URL scheme.
 - `tga.backup.params`: Parameter parsing and validation logic.
 - `tga.backup.log`: Logging utilities and progress indicators.
-
+- `tga.backup.utils`: Miscellaneous utilities
+  - `ConsoleMultiThreadWorkers.kt` - contains a service `ConsoleMultiThreadWorkers` for running tasks in parallel and reporting progress to console in real-time.
+    - The service has fixed number of threads (defined as a constructor parameter)
+    - Each thread in the executor is consoled with a console line
+    - A task (implementation of the `TaskWithStatus` interface) has a callback to report progress (a string) - the service prints the strings to correct lines in console
+    - example of running the service: `demo.kt` files (see a `main()` function inside the file).
+  
 
 #### Coding Patterns & Best Practices
 - **Abstraction over Implementation**: Using the `FileOps` abstract class allows the sync logic to remain platform-agnostic.

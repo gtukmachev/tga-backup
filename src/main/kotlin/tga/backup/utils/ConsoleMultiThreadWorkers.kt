@@ -3,6 +3,10 @@ package tga.backup.utils
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
+fun interface TaskWithStatus<T> {
+    fun run(updateStatus: (String) -> Unit): T
+}
+
 class ConsoleMultiThreadWorkers<T>(private val threadCount: Int) {
 
     private val executor = Executors.newFixedThreadPool(threadCount)
