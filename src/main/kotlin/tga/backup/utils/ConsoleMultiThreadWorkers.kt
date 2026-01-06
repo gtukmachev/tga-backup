@@ -1,38 +1,46 @@
 package tga.backup.utils
 
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
-class ConsoleMultiThreadWorkers(private val threadCount: Int) {
+class ConsoleMultiThreadWorkers<T>(private val threadCount: Int) {
 
-    private val queue: BlockingQueue<RunnableWithStringStatus> = LinkedBlockingQueue()
-    private val workers = mutableListOf<Worker>()
-    private val isRunning = AtomicBoolean(true)
+    private val executor = Executors.newFixedThreadPool(threadCount)
     private val activeTasks = AtomicInteger(0)
+    private val workerLineMap = ConcurrentHashMap<Long, Int>()
+    private val nextLineIndex = AtomicInteger(0)
 
     init {
         repeat(threadCount) { println() }
-        repeat(threadCount) { index ->
-            val worker = Worker(index)
-            workers.add(worker)
-            worker.start()
-        }
     }
 
-    fun submit(task: RunnableWithStringStatus) {
-        queue.put(task)
+    fun submit(task: TaskWithStatus<T>): Future<Result<T>> {
+        return executor.submit(Callable {
+            val threadId = Thread.currentThread().id
+            val lineIndex = workerLineMap.getOrPut(threadId) { nextLineIndex.getAndIncrement() % threadCount }
+
+            activeTasks.incrementAndGet()
+            try {
+                val result = task.run { status ->
+                    outputStatus(lineIndex, status)
+                }
+                Result.success(result)
+            } catch (e: Throwable) {
+                outputStatus(lineIndex, "Error: ${e.message}")
+                Result.failure(e)
+            } finally {
+                activeTasks.decrementAndGet()
+            }
+        })
     }
 
-    fun submit(task: ( (String) -> Unit ) -> Unit) {
-        submit(RunnableWithStringStatus { task(it) })
+    fun submit(task: ((String) -> Unit) -> T): Future<Result<T>> {
+        return submit(TaskWithStatus { task(it) })
     }
 
     @Synchronized
-    private fun outputStatus(workerIndex: Int, status: String) {
-        val linesToMoveUp = threadCount - workerIndex
+    private fun outputStatus(lineIndex: Int, status: String) {
+        val linesToMoveUp = threadCount - lineIndex
         // ESC [ <n> A - Move cursor up n lines
         // ESC [ G - Move cursor to the beginning of the line
         // ESC [ K - Erase to end of line
@@ -41,39 +49,11 @@ class ConsoleMultiThreadWorkers(private val threadCount: Int) {
     }
 
     fun waitForCompletion() {
-        while (queue.isNotEmpty() || activeTasks.get() > 0) {
-            Thread.sleep(100)
-        }
+        executor.shutdown()
+        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS)
     }
 
     fun shutdown() {
-        isRunning.set(false)
-        workers.forEach { it.interrupt() }
-        workers.forEach { it.join() }
-    }
-
-    private inner class Worker(val index: Int) : Thread("ConsoleWorker-$index") {
-        override fun run() {
-            while (isRunning.get() || queue.isNotEmpty()) {
-                val task = try {
-                    queue.poll(100, TimeUnit.MILLISECONDS)
-                } catch (e: InterruptedException) {
-                    null
-                }
-
-                if (task != null) {
-                    activeTasks.incrementAndGet()
-                    try {
-                        task.run { status ->
-                            outputStatus(index, status)
-                        }
-                    } catch (e: Exception) {
-                        outputStatus(index, "Error in worker $index: ${e.message}")
-                    } finally {
-                        activeTasks.decrementAndGet()
-                    }
-                }
-            }
-        }
+        executor.shutdownNow()
     }
 }

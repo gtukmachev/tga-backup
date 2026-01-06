@@ -1,5 +1,5 @@
 package tga.backup.utils
 
-fun interface RunnableWithStringStatus {
-    fun run(updateStatus: (String) -> Unit)
+fun interface TaskWithStatus<T> {
+    fun run(updateStatus: (String) -> Unit): T
 }
