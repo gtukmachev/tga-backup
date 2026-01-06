@@ -6,7 +6,7 @@ abstract class FileOps(
     protected val filesSeparator: String
 ) {
     // Interface part
-    abstract fun getFilesSet(rootPath: String): Set<FileInfo> // platform specific
+    abstract fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> // platform specific
 
     fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false) {
         val sortedFilesList = filesList.sorted()

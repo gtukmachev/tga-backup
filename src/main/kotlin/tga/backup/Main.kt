@@ -24,11 +24,11 @@ fun main(args: Array<String>) {
     val srcFileOps = buildFileOpsByURL(params.srcFolder, params)
     val dstFileOps = buildFileOpsByURL(params.dstFolder, params)
 
-    val srcFiles =  srcFileOps.getFilesSet(params.srcFolder)
+    val srcFiles =  srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
     if (params.verbose) logFilesList("Source", srcFiles)
 
     val rootDstFolder =  FileInfo("", true, 10L)
-    val dstFiles = dstFileOps.getFilesSet(params.dstFolder) - rootDstFolder
+    val dstFiles = dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false) - rootDstFolder
     if (params.verbose) logFilesList("Destination", dstFiles)
 
     val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles)

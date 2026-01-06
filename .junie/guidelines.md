@@ -53,9 +53,6 @@ The project follows a clean, modular structure under the `tga.backup` package:
 #### Testing Methodology
 - **Frameworks**: JUnit 5 for test execution and **AssertJ** for fluent assertions.
 - **Assertion Style**: Use `assertThat(...)` from AssertJ. Preferred methods include `.isEmpty()`, `.containsExactly()`, and `.containsExactlyInAnyOrder()`.
-- **Policy**:
-   - Do **not** create new tests by default unless explicitly requested by the task.
-   - When fixing bugs (whe requested), aim to create a reproduction test case first.
 
 #### Useful Notes
 - **MD5 Checksums**: Used to detect changes in files even if their size remains identical.
