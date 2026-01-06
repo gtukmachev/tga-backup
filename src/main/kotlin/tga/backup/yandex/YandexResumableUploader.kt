@@ -2,6 +2,7 @@ package tga.backup.yandex
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,7 +16,13 @@ class YandexResumableUploader(
     private val gson = Gson()
 
     fun getResources(path: String, limit: Int, offset: Int): JsonObject {
-        val url = "https://cloud-api.yandex.net/v1/disk/resources?path=$path&limit=$limit&offset=$offset&fields=name,type,path,size,md5,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.items.md5,_embedded.total"
+        val url = "https://cloud-api.yandex.net/v1/disk/resources".toHttpUrl().newBuilder()
+            .addQueryParameter("path", path)
+            .addQueryParameter("limit", limit.toString())
+            .addQueryParameter("offset", offset.toString())
+            .addQueryParameter("fields", "name,type,path,size,md5,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.items.md5,_embedded.total")
+            .build()
+
         val request = Request.Builder()
             .url(url)
             .header("Authorization", "OAuth $token")
@@ -29,8 +36,12 @@ class YandexResumableUploader(
     }
 
     fun makeFolder(path: String) {
+        val url = "https://cloud-api.yandex.net/v1/disk/resources".toHttpUrl().newBuilder()
+            .addQueryParameter("path", path)
+            .build()
+
         val request = Request.Builder()
-            .url("https://cloud-api.yandex.net/v1/disk/resources?path=$path")
+            .url(url)
             .header("Authorization", "OAuth $token")
             .put(okhttp3.internal.EMPTY_REQUEST)
             .build()
@@ -43,8 +54,13 @@ class YandexResumableUploader(
     }
 
     fun delete(path: String, permanently: Boolean = false) {
+        val url = "https://cloud-api.yandex.net/v1/disk/resources".toHttpUrl().newBuilder()
+            .addQueryParameter("path", path)
+            .addQueryParameter("permanently", permanently.toString())
+            .build()
+
         val request = Request.Builder()
-            .url("https://cloud-api.yandex.net/v1/disk/resources?path=$path&permanently=$permanently")
+            .url(url)
             .header("Authorization", "OAuth $token")
             .delete()
             .build()
@@ -88,8 +104,13 @@ class YandexResumableUploader(
 
     // Get URL for uploading
     fun getUploadLink(path: String): String {
+        val url = "https://cloud-api.yandex.net/v1/disk/resources/upload".toHttpUrl().newBuilder()
+            .addQueryParameter("path", path)
+            .addQueryParameter("overwrite", "true")
+            .build()
+
         val request = Request.Builder()
-            .url("https://cloud-api.yandex.net/v1/disk/resources/upload?path=$path&overwrite=true")
+            .url(url)
             .header("Authorization", "OAuth $token")
             .get()
             .build()
