@@ -57,10 +57,17 @@ fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy:
     if (toCopy.isEmpty()) return
 
     val actionName = if (override) "Overriding" else "Copying"
-    println("\n$actionName:....")
+
+    println("\nCreating folders for $actionName:....")
     try {
-        if (toCopy.isNotEmpty())
-            dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override)
+        dstFileOps.createFolders(toCopy, params.dstFolder, params.dryRun)
+    } finally {
+        println(".... folders creation finished\n")
+    }
+
+    println("\n$actionName files:....")
+    try {
+        dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override)
     } finally {
         println(".... $actionName is finished\n")
     }

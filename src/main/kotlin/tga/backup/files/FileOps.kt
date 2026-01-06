@@ -8,21 +8,26 @@ abstract class FileOps(
     // Interface part
     abstract fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> // platform specific
 
+    fun createFolders(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean) {
+        val sortedFoldersList = filesList.filter { it.isDirectory }.sorted()
+
+        for (fileInfo in sortedFoldersList) {
+            val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
+            logWrap("creating folder: $dstPath") {
+                if (!dryRun) mkDirs(dstPath)
+            }
+        }
+    }
+
     fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false) {
-        val sortedFilesList = filesList.sorted()
+        val sortedFilesList = filesList.filter { !it.isDirectory }.sorted()
 
         for (fileInfo in sortedFilesList) {
             val srcPath = "${srcFolder}${filesSeparator}${fileInfo.name}"
             val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
-            if (fileInfo.isDirectory) {
-                logWrap("creating folder: $dstPath") {
-                    if (!dryRun) mkDirs(dstPath)
-                }
-            } else {
-                val action = if (override) "overriding" else "copying   "
-                logWrap("$action : $dstPath", eatErrors = true) {
-                    if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override)
-                }
+            val action = if (override) "overriding" else "copying   "
+            logWrap("$action : $dstPath", eatErrors = true) {
+                if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override)
             }
         }
 
