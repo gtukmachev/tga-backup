@@ -1,7 +1,9 @@
 package tga.backup.files
 
+import com.google.gson.JsonObject
 import io.github.oshai.kotlinlogging.KotlinLogging
 import tga.backup.log.toLog
+import tga.backup.yandex.YandexResponseException
 import tga.backup.yandex.YandexResumableUploader
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -46,16 +48,10 @@ class YandexFileOps(
                     var offset = 0
                     while (error.get() == null) {
                         logger.debug { "Fetching folder metadata: $path (offset: $offset)" }
-                        val req = ResourcesArgs.Builder()
-                            .setPath(path)
-                            .setLimit(maxPageSize)
-                            .setOffset(offset)
-                            .setFields("name,type,path,size,md5,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.items.md5,_embedded.total")
-                            .build()
 
                         val resource = try {
-                            yandex.getResources(req)
-                        } catch (e: HttpCodeException) {
+                            yandex.getResources(path, maxPageSize, offset)
+                        } catch (e: YandexResponseException) {
                             if (path == fullRootPath && e.code == 404) {
                                 if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $path", e)
                                 return@execute
@@ -74,22 +70,29 @@ class YandexFileOps(
                             }
                         }
 
-                        val resourceList = resource.resourceList
-                        val items = resourceList?.items ?: emptyList()
+                        val embedded = resource.getAsJsonObject("_embedded")
+                        val itemsArray = embedded?.getAsJsonArray("items")
+                        val items = mutableListOf<JsonObject>()
+                        itemsArray?.forEach { items.add(it.asJsonObject) }
+                        
+                        val total = embedded?.get("total")?.asInt ?: 0
 
-                        items.forEach {
-                            if (it.isDir) {
-                                scan(it.path.path)
+                        items.forEach { item ->
+                            val type = item.get("type").asString
+                            val itemPath = item.get("path").asString
+                            if (type == "dir") {
+                                scan(itemPath.removePrefix("disk:"))
                             } else {
-                                files.add(it.toFileInfo(fullRootPathPrefix))
+                                files.add(item.toFileInfo(fullRootPathPrefix))
                                 printFilesSize()
                             }
                         }
 
-                        if (items.size < maxPageSize || (resourceList != null && offset + items.size >= resourceList.total)) break
-                        offset += items.size
+                        val itemsCount = items.size
+                        if (itemsCount < maxPageSize || (offset + itemsCount).toLong() >= total.toLong()) break
+                        offset += itemsCount
                     }
-                } catch (e: HttpCodeException) {
+                } catch (e: YandexResponseException) {
                     if (e.code != 404) error.compareAndSet(null, e)
                 } catch (e: Throwable) {
                     error.compareAndSet(null, e)
@@ -127,15 +130,11 @@ class YandexFileOps(
             try {
                 yandex.makeFolder(currentPath)
                 createdFolders.add(currentPath)
-            } catch (e: HttpCodeException) {
-                when {
-                    (e.response.error == "DiskPathPointsToExistentDirectoryError") -> {
-                        createdFolders.add(currentPath)
-                    }
-                    (e.code == 409 && e.response.error == "DiskPathPointsToExistentDirectoryError") -> {
-                        createdFolders.add(currentPath)
-                    }
-                    else -> throw e
+            } catch (e: YandexResponseException) {
+                if (e.code == 409) {
+                    createdFolders.add(currentPath)
+                } else {
+                    throw e
                 }
             }
         }
@@ -156,20 +155,25 @@ class YandexFileOps(
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    private fun Resource.toFileInfo(commonPrefix: String): FileInfo {
+    private fun JsonObject.toFileInfo(commonPrefix: String): FileInfo {
+        val path = this.get("path").asString.removePrefix("disk:")
+        val type = this.get("type").asString
+        val isDir = type == "dir"
+        val size = if (isDir) 10L else this.get("size")?.asLong ?: 0L
+        val md5 = this.get("md5")?.asString
+
         return FileInfo(
-            name = this.path.path.removePrefix(commonPrefix).removePrefix("/"),
-            isDirectory = this.isDir,
-            size = if (this.isDir) 10L else this.size,
-            md5 = this.md5
+            name = path.removePrefix(commonPrefix).removePrefix("/"),
+            isDirectory = isDir,
+            size = size,
+            md5 = md5
         )
     }
 
     private fun uploadToYandex(action: String, from: String, to: String, override: Boolean, updateStatus: (String) -> Unit) {
         val sl = StatusListener(action, from, updateStatus)
         try {
-            val uploadUrl = yandex.getUploadLink(to.toYandexPath(), override)
-            yandex.uploadFile(uploadUrl, false, File(from), sl)
+            yandex.uploadFile(File(from), to.toYandexPath(), sl::updateProgress)
             sl.printDone()
         } catch (e: Throwable) {
             sl.printProgress(e)
@@ -179,13 +183,13 @@ class YandexFileOps(
     }
 
 
-    class StatusListener(val action: String, val fileName: String, val updateStatus: (String) -> Unit) : ProgressListener {
+    class StatusListener(val action: String, val fileName: String, val updateStatus: (String) -> Unit) {
 
         var lastLoaded: Long = 0
         var lastTotal: Long = 1
         var lastUpdateTs: Long = 0
 
-        override fun updateProgress(loaded: Long, total: Long) {
+        fun updateProgress(loaded: Long, total: Long) {
             lastLoaded = loaded
             lastTotal = total
             val now = System.currentTimeMillis()
@@ -216,10 +220,6 @@ class YandexFileOps(
             }
             updateStatus(status)
         }
-
-
-
-        override fun hasCancelled(): Boolean = false // todo: implement gracefully cancellation
     }
 
     private fun String.toYandexPath() = this.removePrefix("yandex://")

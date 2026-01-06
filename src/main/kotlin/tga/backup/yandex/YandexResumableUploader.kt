@@ -6,7 +6,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import java.io.IOException
 
 class YandexResumableUploader(
     private val token: String,
@@ -14,6 +13,48 @@ class YandexResumableUploader(
 ) {
 
     private val gson = Gson()
+
+    fun getResources(path: String, limit: Int, offset: Int): JsonObject {
+        val url = "https://cloud-api.yandex.net/v1/disk/resources?path=$path&limit=$limit&offset=$offset&fields=name,type,path,size,md5,_embedded.items.name,_embedded.items.type,_embedded.items.path,_embedded.items.size,_embedded.items.md5,_embedded.total"
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "OAuth $token")
+            .get()
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw YandexResponseException("Error getting resources", response)
+            return gson.fromJson(response.body?.charStream(), JsonObject::class.java)
+        }
+    }
+
+    fun makeFolder(path: String) {
+        val request = Request.Builder()
+            .url("https://cloud-api.yandex.net/v1/disk/resources?path=$path")
+            .header("Authorization", "OAuth $token")
+            .put(okhttp3.internal.EMPTY_REQUEST)
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful && response.code != 409) {
+                throw YandexResponseException("Error creating folder", response)
+            }
+        }
+    }
+
+    fun delete(path: String, permanently: Boolean = false) {
+        val request = Request.Builder()
+            .url("https://cloud-api.yandex.net/v1/disk/resources?path=$path&permanently=$permanently")
+            .header("Authorization", "OAuth $token")
+            .delete()
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful && response.code != 404) {
+                throw YandexResponseException("Error deleting resource", response)
+            }
+        }
+    }
 
     // Main method
     fun uploadFile(localFile: File, remotePath: String, onProgress: ProgressCallback) {
@@ -46,7 +87,7 @@ class YandexResumableUploader(
     }
 
     // Get URL for uploading
-    private fun getUploadLink(path: String): String {
+    fun getUploadLink(path: String): String {
         val request = Request.Builder()
             .url("https://cloud-api.yandex.net/v1/disk/resources/upload?path=$path&overwrite=true")
             .header("Authorization", "OAuth $token")
@@ -54,7 +95,7 @@ class YandexResumableUploader(
             .build()
 
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Error getting upload link: ${response.code}")
+            if (!response.isSuccessful) throw YandexResponseException("Error getting upload link", response)
             val json = gson.fromJson(response.body?.charStream(), JsonObject::class.java)
             return json.get("href").asString
         }

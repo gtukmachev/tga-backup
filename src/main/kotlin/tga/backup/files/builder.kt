@@ -1,10 +1,8 @@
 package tga.backup.files
 
-import com.squareup.okhttp.OkHttpClient
-import com.yandex.disk.rest.Credentials
-import com.yandex.disk.rest.OkHttpClientFactory
-import com.yandex.disk.rest.RestClient
 import tga.backup.params.Params
+import tga.backup.yandex.OkHttpClientBuilder
+import tga.backup.yandex.YandexResumableUploader
 
 fun buildFileOpsByURL(url: String, params: Params): FileOps {
     return when {
@@ -13,14 +11,8 @@ fun buildFileOpsByURL(url: String, params: Params): FileOps {
     }
 }
 
-fun buildYandexClient(params: Params): RestClient {
-    val credentials = Credentials(params.yandexUser, params.yandexToken)
-    val okHttpClient: OkHttpClient = OkHttpClientFactory.makeClient()
-    okHttpClient.setConnectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-    okHttpClient.setReadTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
-    okHttpClient.setWriteTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
-    okHttpClient.setConnectionPool(com.squareup.okhttp.ConnectionPool(params.parallelThreads + 2, 5 * 60 * 1000L))
-    okHttpClient.dispatcher.maxRequestsPerHost = params.parallelThreads + 2
-    okHttpClient.dispatcher.maxRequests = 100
-    return RestClient(credentials, okHttpClient )
+fun buildYandexClient(params: Params): YandexResumableUploader {
+    val okHttpClient = OkHttpClientBuilder.provideOkHttpClient()
+    val token = params.yandexToken ?: throw RuntimeException("Yandex token is missed!")
+    return YandexResumableUploader(token, okHttpClient)
 }
