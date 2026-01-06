@@ -2,7 +2,7 @@ package tga.backup.yandex
 
 import okhttp3.Response
 
-class YandexResponseException(message: String, val response: Response) : Exception(message) {
+class YandexResponseException(message: String, val response: Response) : Exception("$message [code=${response.code}] originalMessage: ['${response.message}']") {
     val code: Int = response.code
     val originalMessage: String = response.message
 

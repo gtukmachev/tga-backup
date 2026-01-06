@@ -92,14 +92,32 @@ class YandexResumableUploader(
 
         if (serverOffset > 0) {
             println("Partial upload detected: ${(serverOffset / 1024 / 1024)} MB. Resuming...")
+            // 3. Execute PATCH request from the required offset
+            performPatch(uploadUrl, localFile, serverOffset, onProgress)
         } else {
             println("Starting upload from scratch...")
+            // 3. Execute PUT request for the full file
+            performPut(uploadUrl, localFile, onProgress)
         }
 
-        // 3. Execute PATCH request from the required offset
-        performPatch(uploadUrl, localFile, serverOffset, onProgress)
-
         println("\nUpload completed successfully!")
+    }
+
+    // Send data using the PUT method (for fresh uploads)
+    private fun performPut(url: String, file: File, onProgress: ProgressCallback) {
+        val contentType = "application/octet-stream".toMediaType()
+        val body = ResumableRequestBody(file, contentType, 0L, onProgress)
+
+        val request = Request.Builder()
+            .url(url)
+            .put(body)
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw YandexResponseException("File loading error (PUT)", response)
+            }
+        }
     }
 
     // Get URL for uploading
