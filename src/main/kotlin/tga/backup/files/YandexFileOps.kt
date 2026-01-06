@@ -174,6 +174,7 @@ class YandexFileOps(
         try {
             val uploadUrl = yandex.getUploadLink(to.toYandexPath(), override)
             yandex.uploadFile(uploadUrl, false, File(from), sl)
+            sl.printDone()
         } catch (e: Throwable) {
             sl.printProgress(e)
             Thread.sleep(2000)
@@ -193,10 +194,15 @@ class YandexFileOps(
             printProgress()
         }
 
-        fun printProgress(err: Throwable? = null) {
+        fun printDone() {
+            printProgress(null, isDone = true)
+        }
+
+        fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
             val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
             val dots = (prc * 100).toInt()
-            val progressBar = ".".repeat(dots).padEnd(100)
+            var progressBar = ".".repeat(dots).padEnd(100)
+            if (isDone) progressBar += " DONE "
 
             val fileNameLen = 50
             val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
@@ -209,6 +215,8 @@ class YandexFileOps(
             }
             updateStatus(status)
         }
+
+
 
         override fun hasCancelled(): Boolean = false // todo: implement gracefully cancellation
     }
