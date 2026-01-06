@@ -6,11 +6,13 @@ import okio.BufferedSink
 import java.io.File
 import java.io.FileInputStream
 
+typealias ProgressCallback = (loaded: Long, total: Long) -> Unit
+
 class ResumableRequestBody(
     private val file: File,
     private val contentType: MediaType?,
     private val offset: Long, // Сколько байт уже на сервере (пропускаем их)
-    private val onProgress: (loaded: Long, total: Long) -> Unit
+    private val onProgress: ProgressCallback
 ) : RequestBody() {
 
     override fun contentType() = contentType

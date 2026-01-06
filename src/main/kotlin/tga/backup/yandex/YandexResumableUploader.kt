@@ -16,7 +16,7 @@ class YandexResumableUploader(
     private val gson = Gson()
 
     // Главный метод
-    fun uploadFile(localFile: File, remotePath: String) {
+    fun uploadFile(localFile: File, remotePath: String, onProgress: ProgressCallback) {
         // 1. Получаем ссылку (или используем старую, если она еще жива, но лучше получить свежую)
         val uploadUrl = getUploadLink(remotePath)
 
@@ -40,7 +40,7 @@ class YandexResumableUploader(
         }
 
         // 3. Выполняем PATCH запрос с нужного места
-        performPatch(uploadUrl, localFile, serverOffset)
+        performPatch(uploadUrl, localFile, serverOffset, onProgress)
 
         println("\nЗагрузка завершена успешно!")
     }
@@ -76,14 +76,11 @@ class YandexResumableUploader(
     }
 
     // Отправляем данные методом PATCH
-    private fun performPatch(url: String, file: File, offset: Long) {
+    private fun performPatch(url: String, file: File, offset: Long, onProgress: ProgressCallback) {
         // Tus требует этот Content-Type
         val contentType = "application/offset+octet-stream".toMediaType()
 
-        val body = ResumableRequestBody(file, contentType, offset) { current, total ->
-            val percent = (current * 100) / total
-            print("\rПрогресс: $percent% [${current/1024/1024} / ${total/1024/1024} MB]")
-        }
+        val body = ResumableRequestBody(file, contentType, offset, onProgress)
 
         val request = Request.Builder()
             .url(url)
@@ -94,7 +91,7 @@ class YandexResumableUploader(
 
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                throw IOException("Ошибка загрузки (PATCH): ${response.code} ${response.message}")
+                throw YandexResponseException("File loading error (PATCH)", response)
             }
         }
     }
