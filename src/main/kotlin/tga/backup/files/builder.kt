@@ -12,7 +12,7 @@ fun buildFileOpsByURL(url: String, params: Params): FileOps {
 }
 
 fun buildYandexClient(params: Params): YandexResumableUploader {
-    val okHttpClient = OkHttpClientBuilder.provideOkHttpClient()
+    val okHttpClient = OkHttpClientBuilder.provideOkHttpClient(params.parallelThreads)
     val token = params.yandexToken ?: throw RuntimeException("Yandex token is missed!")
     return YandexResumableUploader(token, okHttpClient)
 }
