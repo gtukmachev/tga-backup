@@ -101,13 +101,34 @@ class YandexFileOps(
         return files
     }
 
+    private val createdFolders = ConcurrentHashMap.newKeySet<String>()
+
     override fun mkDirs(dirPath: String) {
-        try {
-            yandex.makeFolder(dirPath.toYandexPath())
-        } catch (e: HttpCodeException) {
-            when {
-                (e.response.error == "DiskPathPointsToExistentDirectoryError") -> { /* dir already exists */ }
-                else -> throw e
+        val path = dirPath.toYandexPath().removePrefix("/")
+        if (path.isEmpty()) return
+
+        val folders = path.split("/").filter { it.isNotEmpty() }
+        var currentPath = ""
+
+        for (folder in folders) {
+            if (currentPath.isNotEmpty()) currentPath += "/"
+            currentPath += folder
+
+            if (createdFolders.contains(currentPath)) continue
+
+            try {
+                yandex.makeFolder(currentPath)
+                createdFolders.add(currentPath)
+            } catch (e: HttpCodeException) {
+                when {
+                    (e.response.error == "DiskPathPointsToExistentDirectoryError") -> {
+                        createdFolders.add(currentPath)
+                    }
+                    (e.code == 409 && e.response.error == "DiskPathPointsToExistentDirectoryError") -> {
+                        createdFolders.add(currentPath)
+                    }
+                    else -> throw e
+                }
             }
         }
     }
