@@ -187,11 +187,16 @@ class YandexFileOps(
 
         var lastLoaded: Long = 0
         var lastTotal: Long = 1
+        var lastUpdateTs: Long = 0
 
         override fun updateProgress(loaded: Long, total: Long) {
             lastLoaded = loaded
             lastTotal = total
-            printProgress()
+            val now = System.currentTimeMillis()
+            if (now - lastUpdateTs > 250) {
+                lastUpdateTs = now
+                printProgress()
+            }
         }
 
         fun printDone() {

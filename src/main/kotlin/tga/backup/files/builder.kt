@@ -19,7 +19,8 @@ fun buildYandexClient(params: Params): RestClient {
     okHttpClient.setConnectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
     okHttpClient.setReadTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
     okHttpClient.setWriteTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
-    okHttpClient.dispatcher.maxRequestsPerHost = 20
+    okHttpClient.setConnectionPool(com.squareup.okhttp.ConnectionPool(params.parallelThreads + 2, 5 * 60 * 1000L))
+    okHttpClient.dispatcher.maxRequestsPerHost = params.parallelThreads + 2
     okHttpClient.dispatcher.maxRequests = 100
     return RestClient(credentials, okHttpClient )
 }
