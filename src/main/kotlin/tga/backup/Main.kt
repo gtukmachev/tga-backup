@@ -49,13 +49,32 @@ fun main(args: Array<String>) {
     val continueAnswer = readln()
     if (continueAnswer !in setOf("Y", "y")) return
 
-    runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
-    runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
-    runDeleting(dstFileOps, params, actions.toDeleteFiles)
+    val results = mutableListOf<Result<Unit>>()
+    results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
+    results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+    results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+
+    printFinalSummary(results)
 }
 
-fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy: Set<FileInfo>, override: Boolean) {
-    if (toCopy.isEmpty()) return
+fun printFinalSummary(results: List<Result<Unit>>) {
+    val successCount = results.count { it.isSuccess }
+    val errorCount = results.count { it.isFailure }
+
+    println("\nFinal Result:")
+    println("Successfully processed: $successCount")
+    println("Errors:                 $errorCount")
+
+    if (errorCount > 0) {
+        println("\nDetailed errors:")
+        results.filter { it.isFailure }.forEach {
+            println("- ${it.exceptionOrNull()?.message ?: "Unknown error"}")
+        }
+    }
+}
+
+fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy: Set<FileInfo>, override: Boolean): List<Result<Unit>> {
+    if (toCopy.isEmpty()) return emptyList()
 
     val actionName = if (override) "Overriding" else "Copying"
 
@@ -67,22 +86,24 @@ fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy:
     }
 
     println("\n$actionName files:....")
-    val workers = if (params.dryRun) null else ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
+    val workers = ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
     try {
-        dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override, workers)
+        return dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override, workers)
     } finally {
         println(".... $actionName is finished\n")
     }
 }
 
 
-fun runDeleting(dstFileOps: FileOps, params: Params, toDelete: Set<FileInfo>) {
-    if (toDelete.isEmpty()) return
+fun runDeleting(dstFileOps: FileOps, params: Params, toDelete: Set<FileInfo>): List<Result<Unit>> {
+    if (toDelete.isEmpty()) return emptyList()
 
     println("\nDeleting:....")
     try {
-        if (toDelete.isNotEmpty())
+        return if (toDelete.isNotEmpty())
             dstFileOps.deleteFiles(toDelete, params.dstFolder, params.dryRun)
+        else
+            emptyList()
     } finally {
         println(".... Deleting is finished\n")
     }
