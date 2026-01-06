@@ -16,6 +16,9 @@ fun buildFileOpsByURL(url: String, params: Params): FileOps {
 fun buildYandexClient(params: Params): RestClient {
     val credentials = Credentials(params.yandexUser, params.yandexToken)
     val okHttpClient: OkHttpClient = OkHttpClientFactory.makeClient()
+    okHttpClient.setConnectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+    okHttpClient.setReadTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
+    okHttpClient.setWriteTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
     okHttpClient.dispatcher.maxRequestsPerHost = 20
     okHttpClient.dispatcher.maxRequests = 100
     return RestClient(credentials, okHttpClient )
