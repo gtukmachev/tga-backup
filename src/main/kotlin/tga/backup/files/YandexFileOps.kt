@@ -1,12 +1,8 @@
 package tga.backup.files
 
-import com.yandex.disk.rest.ProgressListener
-import com.yandex.disk.rest.ResourcesArgs
-import com.yandex.disk.rest.RestClient
-import com.yandex.disk.rest.exceptions.http.HttpCodeException
-import com.yandex.disk.rest.json.Resource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import tga.backup.log.toLog
+import tga.backup.yandex.YandexResumableUploader
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -14,7 +10,7 @@ import java.util.concurrent.Phaser
 import java.util.concurrent.atomic.AtomicReference
 
 class YandexFileOps(
-    private val yandex: RestClient,
+    private val yandex: YandexResumableUploader,
     val maxPageSize: Int  = 5000
 ) : FileOps(filesSeparator = "/") {
 
