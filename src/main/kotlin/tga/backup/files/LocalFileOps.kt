@@ -19,7 +19,7 @@ class LocalFileOps : FileOps("/") {
         File(dirPath).mkdirs()
     }
 
-    override fun copyFile(from: String,  to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit) {
+    override fun copyFile(action: String, from: String,  to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit) {
         when (srcFileOps) {
             is LocalFileOps -> File(from).copyTo(File(to), overwrite = true)
             else -> throw CopyDirectionIsNotSupportedYet()

@@ -69,8 +69,7 @@ fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy:
     println("\n$actionName files:....")
     val workers = if (params.dryRun) null else ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
     try {
-        dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override,
-            )
+        dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override, workers)
     } finally {
         println(".... $actionName is finished\n")
     }

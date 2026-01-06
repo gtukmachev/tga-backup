@@ -17,7 +17,7 @@ fun main() {
                         ratio < 0.25 -> "\u001b[90m" // Dark Gray
                         ratio < 0.50 -> "\u001b[34m" // Blue
                         ratio < 0.75 -> "\u001b[94m" // Light Blue
-                        else -> "\u001b[96m"        // Light Cyan
+                        else -> "\u001b[96m"         // Light Cyan
                     }
                     message += "*"
                     updateStatus("$colorCode$message\u001b[0m")

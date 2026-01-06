@@ -20,7 +20,7 @@ abstract class FileOps(
         }
     }
 
-    fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false, workers: ConsoleMultiThreadWorkers<Unit>? = null) {
+    fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false, workers: ConsoleMultiThreadWorkers<Unit>) {
         val sortedFilesList = filesList.filter { !it.isDirectory }.sorted()
 
         for (fileInfo in sortedFilesList) {
@@ -28,17 +28,11 @@ abstract class FileOps(
             val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
             val action = if (override) "overriding" else "copying   "
 
-            if (workers == null) {
-                logWrap("$action : $dstPath", eatErrors = true) {
-                    if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override) {}
-                }
-            } else {
-                workers.submit { updateStatus ->
-                    if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override, updateStatus)
-                }
+            workers.submit { updateStatus ->
+                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, override, updateStatus)
             }
         }
-        workers?.waitForCompletion()
+        workers.waitForCompletion()
 
     }
 
@@ -56,7 +50,7 @@ abstract class FileOps(
 
     // platform specific implementation part
     protected abstract fun mkDirs(dirPath: String)
-    protected abstract fun copyFile(from: String,  to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit)
+    protected abstract fun copyFile(action: String, from: String,  to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit)
     protected abstract fun deleteFileOrFolder(path: String)
 
 }

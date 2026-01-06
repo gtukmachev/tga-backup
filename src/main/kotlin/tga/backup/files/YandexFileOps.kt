@@ -6,6 +6,7 @@ import com.yandex.disk.rest.RestClient
 import com.yandex.disk.rest.exceptions.http.HttpCodeException
 import com.yandex.disk.rest.json.Resource
 import io.github.oshai.kotlinlogging.KotlinLogging
+import tga.backup.log.toLog
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -144,9 +145,9 @@ class YandexFileOps(
         }
     }
 
-    override fun copyFile(from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit) {
+    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(from, to, override, updateStatus)
+            is LocalFileOps -> uploadToYandex(action, from, to, override, updateStatus)
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -168,27 +169,44 @@ class YandexFileOps(
         )
     }
 
-    private fun uploadToYandex(from: String, to: String, override: Boolean, updateStatus: (String) -> Unit) {
+    private fun uploadToYandex(action: String, from: String, to: String, override: Boolean, updateStatus: (String) -> Unit) {
+        val sl = StatusListener(action, from, updateStatus)
         try {
             val uploadUrl = yandex.getUploadLink(to.toYandexPath(), override)
-            yandex.uploadFile(uploadUrl, false, File(from), StatusListener(from, updateStatus))
-        } catch (e: Exception) {
-            logger.error(e) {  }
+            yandex.uploadFile(uploadUrl, false, File(from), sl)
+        } catch (e: Throwable) {
+            sl.printProgress(e)
+            Thread.sleep(2000)
+            throw e
         }
     }
 
 
-    class StatusListener(val fileName: String, val updateStatus: (String) -> Unit) : ProgressListener {
+    class StatusListener(val action: String, val fileName: String, val updateStatus: (String) -> Unit) : ProgressListener {
+
+        var lastLoaded: Long = 0
+        var lastTotal: Long = 1
 
         override fun updateProgress(loaded: Long, total: Long) {
-            val prc = if (total > 0) (loaded.toDouble() / total.toDouble()) else 0.0
-            val dots = (prc * 50).toInt()
-            val progressBar = ".".repeat(dots).padEnd(50)
-            
-            val shortName = if (fileName.length > 30) fileName.takeLast(30) else fileName.padEnd(30)
+            lastLoaded = loaded
+            lastTotal = total
+            printProgress()
+        }
+
+        fun printProgress(err: Throwable? = null) {
+            val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
+            val dots = (prc * 100).toInt()
+            val progressBar = ".".repeat(dots).padEnd(100)
+
+            val fileNameLen = 50
+            val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
-            
-            val status = "$shortName [$percentStr $progressBar]"
+
+            val status = if (err == null) {
+                "$action $shortName [$percentStr% $progressBar]"
+            } else {
+                "$action $shortName [$percentStr%] Error: ${err.toLog()}"
+            }
             updateStatus(status)
         }
 
