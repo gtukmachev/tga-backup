@@ -8,27 +8,27 @@ import java.util.concurrent.TimeUnit
 object OkHttpClientBuilder {
 
     fun provideOkHttpClient(): OkHttpClient {
-        // 1. Настройка диспетчера для параллельности
+        // 1. Configure dispatcher for parallelism
         val dispatcher = Dispatcher()
-        // Максимум запросов всего (по умолчанию 64, нам хватит, но можно увеличить)
+        // Max total requests (default is 64, which is enough, but can be increased)
         dispatcher.maxRequests = 20
-        // ВАЖНО: Максимум запросов к ОДНОМУ хосту (cloud-api.yandex.net).
-        // По умолчанию 5. Ставим 10, чтобы все ваши потоки работали реально параллельно.
+        // IMPORTANT: Max requests to ONE host (cloud-api.yandex.net).
+        // Default is 5. Set to 10 so all your threads work truly in parallel.
         dispatcher.maxRequestsPerHost = 10
 
-        // 2. Настройка пула соединений
-        // Держим 10 idle (простаивающих) соединений, чтобы не переоткрывать TCP/TLS каждый раз.
-        // keepAliveDuration = 5 минут.
+        // 2. Configure connection pool
+        // Keep 10 idle connections to avoid re-opening TCP/TLS every time.
+        // keepAliveDuration = 5 minutes.
         val connectionPool = ConnectionPool(10, 5L, TimeUnit.MINUTES)
 
         return OkHttpClient.Builder()
             .dispatcher(dispatcher)
             .connectionPool(connectionPool)
-            // Тайм-ауты (важны для видео)
+            // Timeouts (important for video)
             .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
             .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            // Если вдруг сервер скажет "повтори", OkHttp сам попробует (для GET/HEAD)
+            // If the server says "retry", OkHttp will try automatically (for GET/HEAD)
             .retryOnConnectionFailure(true)
             .build()
     }

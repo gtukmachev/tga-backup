@@ -11,24 +11,24 @@ typealias ProgressCallback = (loaded: Long, total: Long) -> Unit
 class ResumableRequestBody(
     private val file: File,
     private val contentType: MediaType?,
-    private val offset: Long, // Сколько байт уже на сервере (пропускаем их)
+    private val offset: Long, // How many bytes are already on the server (skip them)
     private val onProgress: ProgressCallback
 ) : RequestBody() {
 
     override fun contentType() = contentType
 
-    // OkHttp спросит, какой длины ЭТОТ запрос.
-    // Мы отправляем только "хвост" файла.
+    // OkHttp will ask for the length of THIS request.
+    // We only send the "tail" of the file.
     override fun contentLength(): Long = file.length() - offset
 
     override fun writeTo(sink: BufferedSink) {
-        val buffer = ByteArray(8 * 1024) // Буфер 8 KB
+        val buffer = ByteArray(8 * 1024) // 8 KB buffer
         var inputStream: FileInputStream? = null
 
         try {
             inputStream = FileInputStream(file)
 
-            // ГЛАВНОЕ: Пропускаем то, что уже загружено
+            // IMPORTANT: Skip what is already uploaded
             if (offset > 0) {
                 inputStream.skip(offset)
             }
@@ -40,7 +40,7 @@ class ResumableRequestBody(
                 sink.write(buffer, 0, read)
                 uploadedNow += read
 
-                // Сообщаем общий прогресс (смещение + то что сейчас передали)
+                // Report total progress (offset + what we just transferred)
                 onProgress(offset + uploadedNow, file.length())
             }
         } finally {
