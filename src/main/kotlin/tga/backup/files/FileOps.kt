@@ -1,6 +1,7 @@
 package tga.backup.files
 
 import tga.backup.log.logWrap
+import tga.backup.utils.ConsoleMultiThreadWorkers
 
 abstract class FileOps(
     protected val filesSeparator: String
@@ -19,17 +20,25 @@ abstract class FileOps(
         }
     }
 
-    fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false) {
+    fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false, workers: ConsoleMultiThreadWorkers<Unit>? = null) {
         val sortedFilesList = filesList.filter { !it.isDirectory }.sorted()
 
         for (fileInfo in sortedFilesList) {
             val srcPath = "${srcFolder}${filesSeparator}${fileInfo.name}"
             val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
             val action = if (override) "overriding" else "copying   "
-            logWrap("$action : $dstPath", eatErrors = true) {
-                if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override)
+
+            if (workers == null) {
+                logWrap("$action : $dstPath", eatErrors = true) {
+                    if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override) {}
+                }
+            } else {
+                workers.submit { updateStatus ->
+                    if (!dryRun) copyFile(srcPath, dstPath, srcFileOps, override, updateStatus)
+                }
             }
         }
+        workers?.waitForCompletion()
 
     }
 
@@ -47,7 +56,7 @@ abstract class FileOps(
 
     // platform specific implementation part
     protected abstract fun mkDirs(dirPath: String)
-    protected abstract fun copyFile(from: String,  to: String, srcFileOps: FileOps, override: Boolean)
+    protected abstract fun copyFile(from: String,  to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit)
     protected abstract fun deleteFileOrFolder(path: String)
 
 }

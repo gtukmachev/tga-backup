@@ -144,9 +144,9 @@ class YandexFileOps(
         }
     }
 
-    override fun copyFile(from: String, to: String, srcFileOps: FileOps, override: Boolean) {
+    override fun copyFile(from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(from, to, override)
+            is LocalFileOps -> uploadToYandex(from, to, override, updateStatus)
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -168,28 +168,28 @@ class YandexFileOps(
         )
     }
 
-    private fun uploadToYandex(from: String, to: String, override: Boolean) {
+    private fun uploadToYandex(from: String, to: String, override: Boolean, updateStatus: (String) -> Unit) {
         try {
             val uploadUrl = yandex.getUploadLink(to.toYandexPath(), override)
-            yandex.uploadFile(uploadUrl, false, File(from), PrintStatusListener())
+            yandex.uploadFile(uploadUrl, false, File(from), StatusListener(from, updateStatus))
         } catch (e: Exception) {
             logger.error(e) {  }
         }
     }
 
 
-    class PrintStatusListener : ProgressListener {
-        private var previousLoaded: Float = 0.0f
+    class StatusListener(val fileName: String, val updateStatus: (String) -> Unit) : ProgressListener {
 
         override fun updateProgress(loaded: Long, total: Long) {
-            val loadedFloat = loaded.toFloat()
-            val totalFloat = total.toFloat()
-            val prcNow = loadedFloat / totalFloat
-            val prcPrev = previousLoaded / totalFloat
-            if ( (prcNow - prcPrev) >= 0.02) {
-                previousLoaded = loadedFloat
-                print(".")
-            }
+            val prc = if (total > 0) (loaded.toDouble() / total.toDouble()) else 0.0
+            val dots = (prc * 50).toInt()
+            val progressBar = ".".repeat(dots).padEnd(50)
+            
+            val shortName = if (fileName.length > 30) fileName.takeLast(30) else fileName.padEnd(30)
+            val percentStr = "%6.2f".format(prc * 100)
+            
+            val status = "$shortName [$percentStr $progressBar]"
+            updateStatus(status)
         }
 
         override fun hasCancelled(): Boolean = false // todo: implement gracefully cancellation

@@ -8,6 +8,7 @@ import tga.backup.log.formatNumber
 import tga.backup.logo.printLogo
 import tga.backup.params.Params
 import tga.backup.params.readParams
+import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.io.File
 
 private val logger = KotlinLogging.logger {  }
@@ -66,8 +67,10 @@ fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy:
     }
 
     println("\n$actionName files:....")
+    val workers = if (params.dryRun) null else ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
     try {
-        dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override)
+        dstFileOps.copyFiles(srcFileOps, params.srcFolder, toCopy, params.dstFolder, params.dryRun, override,
+            )
     } finally {
         println(".... $actionName is finished\n")
     }
