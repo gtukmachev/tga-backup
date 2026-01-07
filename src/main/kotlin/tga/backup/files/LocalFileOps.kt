@@ -1,5 +1,8 @@
 package tga.backup.files
 
+import tga.backup.log.formatFileSize
+import tga.backup.log.formatNumber
+import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
@@ -8,24 +11,41 @@ class LocalFileOps : FileOps("/") {
 
 
     override fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
+        val workers = ConsoleMultiThreadWorkers<Set<FileInfo>>(1) // single thread - we use this engine only for status printing
 
-        // loading of files list phase
-        val rootFile = File(rootPath)
-        if (!rootFile.exists()) {
-            if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $rootPath")
-            return emptySet()
-        }
-        val localFiles = rootFile.listFilesRecursive(HashSet(), "")
-
-        // calculating md5 hash for each file (slow operation)
-        localFiles.forEach {
-            if (!it.isDirectory) {
-                val md5 = File(it.name).calculateMd5()
-                it.setupMd5(md5)
+        val result = workers.submit { updateStatus, updateGlobalStatus ->
+            updateStatus("Scanning: $rootPath")
+            val rootFile = File(rootPath)
+            if (!rootFile.exists()) {
+                if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $rootPath")
+                return@submit emptySet()
             }
+            val localFiles = rootFile.listFilesRecursive(HashSet(), "", updateStatus)
+            val totalSize: Long = localFiles.sumOf { it.size }
+            val totalSizeStr = formatFileSize(totalSize)
+            var scannedSize: Long = 0L
+            val numberOfFiles = localFiles.sumOf { if (it.isDirectory) 0L else 1L }
+            updateStatus("Scanned: [files: ${formatNumber(numberOfFiles)}] [size: ${formatFileSize(totalSize)}]")
+
+            val rootPathWithSeparator = if (rootPath.endsWith(filesSeparator)) rootPath else "$rootPath$filesSeparator"
+
+            // calculating md5 hash for each file (slow operation)
+            localFiles.forEach {
+                if (!it.isDirectory) {
+                    val md5prcDouble = if (totalSize > 0) (scannedSize.toDouble() / totalSize.toDouble() * 100.0) else 0.0
+                    val md5prc = "%6.2f".format(md5prcDouble)
+                    updateGlobalStatus("md5 calculating: ${formatFileSize(scannedSize)} / $totalSizeStr  ${md5prc}% - ${it.name}")
+
+                    val md5 = File(rootPathWithSeparator+it.name).calculateMd5()
+                    it.setupMd5(md5)
+                    scannedSize += it.size
+                }
+            }
+
+            return@submit localFiles
         }
 
-        return localFiles
+        return result.get().getOrThrow()
     }
 
     override fun mkDirs(dirPath: String) {
@@ -43,7 +63,8 @@ class LocalFileOps : FileOps("/") {
         File(path).delete()
     }
 
-    private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String): Set<FileInfo> {
+    private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String, updateStatus: (String) -> Unit): Set<FileInfo> {
+        updateStatus("Scanning: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
             outSet.add(
@@ -54,7 +75,7 @@ class LocalFileOps : FileOps("/") {
                 )
             )
         }
-        content.forEach { if (it.isDirectory) it.listFilesRecursive(outSet, path + it.name + filesSeparator) }
+        content.forEach { if (it.isDirectory) it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus) }
         return outSet
     }
 

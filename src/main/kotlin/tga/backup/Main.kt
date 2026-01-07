@@ -25,6 +25,7 @@ fun main(args: Array<String>) {
     val srcFileOps = buildFileOpsByURL(params.srcFolder, params)
     val dstFileOps = buildFileOpsByURL(params.dstFolder, params)
 
+    println("\nScanning source files:")
     val srcFiles =  srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
     if (params.verbose) logFilesList("Source", srcFiles)
 

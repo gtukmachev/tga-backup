@@ -12,7 +12,6 @@ fun interface TaskWithStatus<T> {
 
 class ConsoleMultiThreadWorkers<T>(
     private val threadCount: Int,
-    private val globalStatusFunc: (() -> String)? = null
 ) {
 
     private val executor = Executors.newFixedThreadPool(threadCount)
