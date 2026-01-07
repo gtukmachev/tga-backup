@@ -36,8 +36,12 @@ class LocalFileOps : FileOps("/") {
                     val md5prc = "%6.2f".format(md5prcDouble)
                     updateGlobalStatus("md5 calculating: ${formatFileSize(scannedSize)} / $totalSizeStr  ${md5prc}% - ${it.name}")
 
-                    val md5 = File(rootPathWithSeparator+it.name).calculateMd5()
-                    it.setupMd5(md5)
+                    try {
+                        val md5 = File(rootPathWithSeparator + it.name).calculateMd5()
+                        it.setupMd5(md5)
+                    } catch (e: Throwable) {
+                        it.readException = e
+                    }
                     scannedSize += it.size
                 }
             }

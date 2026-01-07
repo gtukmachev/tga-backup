@@ -9,6 +9,7 @@ data class FileInfo(
     val md5: String? get() = md5Value
 
     private var md5Value: String? = null
+    var readException: Throwable? = null
 
     fun setupMd5(md5: String) { md5Value = md5 }
 

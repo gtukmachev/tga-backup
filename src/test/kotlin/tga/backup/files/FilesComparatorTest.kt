@@ -106,4 +106,35 @@ class FilesComparatorTest {
             FileInfo("to-override-size.txt", false, 150L).apply { setupMd5("md5-same") },
         )
     }
+
+    @Test
+    fun `test excluded files are ignored`() {
+        val srcFiles = setOf(
+            FileInfo("good.txt", false, 100L).apply { setupMd5("md5-good") },
+            FileInfo("bad.txt", false, 50L).apply { readException = RuntimeException("Boom!") }
+        )
+        val dstFiles = emptySet<FileInfo>()
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        assertThat(result.toAddFiles).containsExactly(FileInfo("good.txt", false, 100L).apply { setupMd5("md5-good") })
+        assertThat(result.toDeleteFiles).isEmpty()
+        assertThat(result.toOverrideFiles).isEmpty()
+    }
+
+    @Test
+    fun `test corrupted local files are not deleted from destination`() {
+        val srcFiles = setOf(
+            FileInfo("corrupted.txt", false, 100L).apply { readException = RuntimeException("Read Error") }
+        )
+        val dstFiles = setOf(
+            FileInfo("corrupted.txt", false, 100L).apply { setupMd5("md5-remote") }
+        )
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        assertThat(result.toAddFiles).isEmpty()
+        assertThat(result.toDeleteFiles).isEmpty()
+        assertThat(result.toOverrideFiles).isEmpty()
+    }
 }

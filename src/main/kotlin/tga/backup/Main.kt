@@ -35,6 +35,8 @@ fun main(args: Array<String>) {
 
     val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles)
 
+    val excludedFiles = srcFiles.filter { it.readException != null }
+
     if (actions.toAddFiles.isEmpty() && actions.toDeleteFiles.isEmpty() && actions.toOverrideFiles.isEmpty()) {
         logger.info { "The source and destination are already exactly the same. No actions required." }
         return
@@ -54,6 +56,17 @@ fun main(args: Array<String>) {
     results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
     results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
     results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+
+    if (excludedFiles.isNotEmpty()) {
+        println("\nEXCLUDED FILES (due to read errors):")
+        excludedFiles.forEach { println("- ${it.name}") }
+
+        println("\nEXCLUDED FILES WITH STACKTRACES:")
+        excludedFiles.forEach {
+            println("\n\nFile: ${it.name}")
+            it.readException?.printStackTrace()
+        }
+    }
 
     printFinalSummary(results)
 }

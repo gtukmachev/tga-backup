@@ -7,17 +7,20 @@ data class SyncActionCases(
 )
 
 fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>): SyncActionCases {
-    val srcFileNames = srcFiles.map { it.name }.toSet()
+    val srcFilesFiltered = srcFiles.filter { it.readException == null }
+
+    val srcFileNames = srcFilesFiltered.map { it.name }.toSet()
+    val allSrcFileNames = srcFiles.map { it.name }.toSet()
     val dstFileNames = dstFiles.map { it.name }.toSet()
 
     val toCopyNames = srcFileNames - dstFileNames
-    val toDeleteNames = dstFileNames - srcFileNames
+    val toDeleteNames = dstFileNames - allSrcFileNames
     val toOverrideNames = srcFileNames.intersect(dstFileNames)
 
-    val toCopy = srcFiles.filter { it.name in toCopyNames }.toSet()
+    val toCopy = srcFilesFiltered.filter { it.name in toCopyNames }.toSet()
     val toDelete = dstFiles.filter { it.name in toDeleteNames }.toSet()
 
-    val srcFilesMap = srcFiles.associateBy { it.name }
+    val srcFilesMap = srcFilesFiltered.associateBy { it.name }
     val dstFilesMap = dstFiles.associateBy { it.name }
     val toOverride = toOverrideNames
         .filter { srcFilesMap[it] != dstFilesMap[it] }
