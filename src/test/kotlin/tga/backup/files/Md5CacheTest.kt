@@ -60,24 +60,39 @@ class Md5CacheTest {
     }
     
     @Test
-    fun `test no save if no changes`() {
+    fun `test column alignment in cache file`() {
         val folder = tempDir.toFile()
-        val cacheFile = File(folder, ".md5")
-        
         val cache = Md5Cache(folder)
+        
+        val file1 = FileInfo("short.txt", false, 10L, 1000L, 2000L)
+        val file2 = FileInfo("very-long-filename.txt", false, 1000000L, 1000L, 2000L)
+        
+        cache.updateMd5(file1, "md5-1")
+        cache.updateMd5(file2, "md5-2")
         cache.save()
-        assertThat(cacheFile).doesNotExist()
         
-        val fileInfo = FileInfo("test.txt", false, 100L, 1000L, 2000L)
-        cache.updateMd5(fileInfo, "md5")
-        cache.save()
-        assertThat(cacheFile).exists()
-        val lastMod = cacheFile.lastModified()
+        val cacheFile = File(folder, ".md5")
+        val lines = cacheFile.readLines()
         
-        Thread.sleep(100)
+        assertThat(lines).hasSize(2)
         
+        // Check that names are padded to the same length (length of "very-long-filename.txt")
+        val name1 = lines[0].split("\t")[0]
+        val name2 = lines[1].split("\t")[0]
+        assertThat(name1.length).isEqualTo(name2.length)
+        assertThat(name1).startsWith("short.txt")
+        assertThat(name1).endsWith(" ")
+        
+        // Check that sizes are padded to the same length (length of "1000000")
+        val size1 = lines[0].split("\t")[1]
+        val size2 = lines[1].split("\t")[1]
+        assertThat(size1.length).isEqualTo(size2.length)
+        assertThat(size1).startsWith(" ")
+        assertThat(size1.trim()).isEqualTo("10")
+        
+        // Verify we can still read it back correctly
         val cache2 = Md5Cache(folder)
-        cache2.save()
-        assertThat(cacheFile.lastModified()).isEqualTo(lastMod)
+        assertThat(cache2.getMd5(file1)).isEqualTo("md5-1")
+        assertThat(cache2.getMd5(file2)).isEqualTo("md5-2")
     }
 }

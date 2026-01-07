@@ -29,11 +29,11 @@ class Md5Cache(val folder: File) {
                 val parts = line.split("\t")
                 if (parts.size == 5) {
                     try {
-                        val name = parts[0]
-                        val size = parts[1].toLong()
-                        val creationTime = df.parse(parts[2]).time
-                        val lastModifiedTime = df.parse(parts[3]).time
-                        val md5 = parts[4]
+                        val name = parts[0].trim()
+                        val size = parts[1].trim().toLong()
+                        val creationTime = df.parse(parts[2].trim()).time
+                        val lastModifiedTime = df.parse(parts[3].trim()).time
+                        val md5 = parts[4].trim()
                         entries[name] = CacheEntry(name, size, creationTime, lastModifiedTime, md5)
                     } catch (e: Exception) {
                         // skip invalid line
@@ -73,9 +73,30 @@ class Md5Cache(val folder: File) {
 
     fun save() {
         if (modified) {
+            val sortedEntries = entries.values.sortedBy { it.name }
+            val formattedEntries = sortedEntries.map { entry ->
+                listOf(
+                    entry.name,
+                    entry.size.toString(),
+                    df.format(Date(entry.creationTime)),
+                    df.format(Date(entry.lastModifiedTime)),
+                    entry.md5
+                )
+            }
+
+            val maxWidths = IntArray(5) { i -> formattedEntries.maxOf { it[i].length } }
+
             cacheFile.bufferedWriter().use { writer ->
-                entries.values.sortedBy { it.name }.forEach { entry ->
-                    writer.write("${entry.name}\t${entry.size}\t${df.format(Date(entry.creationTime))}\t${df.format(Date(entry.lastModifiedTime))}\t${entry.md5}\n")
+                formattedEntries.forEach { parts ->
+                    val line = parts.mapIndexed { i, value ->
+                        when (i) {
+                            0 -> value.padEnd(maxWidths[i]) // name aligned by start
+                            1 -> value.padStart(maxWidths[i]) // size aligned to the right
+                            else -> value // dates and md5 (dates have same length by default, md5 too)
+                        }
+                    }.joinToString("\t")
+                    writer.write(line)
+                    writer.write("\n")
                 }
             }
             modified = false
