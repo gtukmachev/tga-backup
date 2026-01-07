@@ -2,6 +2,7 @@ package tga.backup.yandex
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import io.github.oshai.kotlinlogging.KotlinLogging
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -13,6 +14,7 @@ class YandexResumableUploader(
     private val http: OkHttpClient
 ) {
 
+    private val logger = KotlinLogging.logger {  }
     private val gson = Gson()
 
     fun getResources(path: String, limit: Int, offset: Int): JsonObject {
@@ -30,7 +32,7 @@ class YandexResumableUploader(
             .build()
 
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw YandexResponseException("Error getting resources", response)
+            if (!response.isSuccessful) throw YandexResponseException("Error getting resources", response, dstFilePath = path)
             return gson.fromJson(response.body?.charStream(), JsonObject::class.java)
         }
     }
@@ -48,7 +50,7 @@ class YandexResumableUploader(
 
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful && response.code != 409) {
-                throw YandexResponseException("Error creating folder", response)
+                throw YandexResponseException("Error creating folder", response, dstFilePath = path)
             }
         }
     }
@@ -67,7 +69,7 @@ class YandexResumableUploader(
 
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful && response.code != 404) {
-                throw YandexResponseException("Error deleting resource", response)
+                throw YandexResponseException("Error deleting resource", response, dstFilePath = path)
             }
         }
     }
@@ -77,7 +79,7 @@ class YandexResumableUploader(
         // 1. Get the link (or use the old one if it's still alive, but better to get a fresh one)
         val uploadUrl = getUploadLink(remotePath)
 
-        println("Link received. Checking upload status...")
+        logger.debug { "Link received. Checking upload status..." }
 
         // 2. Upload loop (in case we need to send in chunks,
         // but here we just send the remainder with one PATCH request)
@@ -86,21 +88,21 @@ class YandexResumableUploader(
         val serverOffset = getServerOffset(uploadUrl)
 
         if (serverOffset >= localFile.length()) {
-            println("File is already fully uploaded!")
+            logger.debug { "File is already fully uploaded!" }
             return
         }
 
         if (serverOffset > 0) {
-            println("Partial upload detected: ${(serverOffset / 1024 / 1024)} MB. Resuming...")
+            logger.debug { "Partial upload detected: ${(serverOffset / 1024 / 1024)} MB. Resuming..." }
             // 3. Execute PATCH request from the required offset
             performPatch(uploadUrl, localFile, serverOffset, onProgress)
         } else {
-            println("Starting upload from scratch...")
+            logger.debug { "Starting upload from scratch..." }
             // 3. Execute PUT request for the full file
             performPut(uploadUrl, localFile, onProgress)
         }
 
-        println("\nUpload completed successfully!")
+        logger.debug { "\nUpload completed successfully!" }
     }
 
     // Send data using the PUT method (for fresh uploads)
@@ -115,7 +117,7 @@ class YandexResumableUploader(
 
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                throw YandexResponseException("File loading error (PUT)", response)
+                throw YandexResponseException("File loading error (PUT)", response, srcFilePath = file.path)
             }
         }
     }
@@ -134,7 +136,7 @@ class YandexResumableUploader(
             .build()
 
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw YandexResponseException("Error getting upload link", response)
+            if (!response.isSuccessful) throw YandexResponseException("Error getting upload link", response, dstFilePath = path)
             val json = gson.fromJson(response.body?.charStream(), JsonObject::class.java)
             return json.get("href").asString
         }
@@ -171,7 +173,7 @@ class YandexResumableUploader(
 
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                throw YandexResponseException("File loading error (PATCH)", response)
+                throw YandexResponseException("File loading error (PATCH)", response, srcFilePath = file.path)
             }
         }
     }

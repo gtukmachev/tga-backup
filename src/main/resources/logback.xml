@@ -16,7 +16,6 @@
 
     <root level="info"><appender-ref ref="ASYNC"/></root>
     <logger name="tga.backup.files.YandexFileOps" level="debug" />
-
-
+    <logger name="tga.backup.yandex" level="WARN" />
 
 </configuration>
