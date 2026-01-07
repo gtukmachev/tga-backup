@@ -11,7 +11,7 @@ class ConsoleMultiThreadWorkersTest {
         val futures = mutableListOf<java.util.concurrent.Future<Result<Int>>>()
 
         repeat(15) { n ->
-            futures.add(workers.submit { updateStatus ->
+            futures.add(workers.submit { updateStatus, updateGlobalStatus ->
                 var message = "Task $n - "
                 repeat(10) { i ->
                     val ratio = i / 10.0

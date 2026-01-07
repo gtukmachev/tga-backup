@@ -4,11 +4,10 @@ import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
 fun interface TaskWithStatus<T> {
-    fun run(updateStatus: (String) -> Unit): T
-}
-
-fun interface TaskWithTwoStatuses<T> {
-    fun run(updateStatus: (String) -> Unit, updateGlobalStatus: (String) -> Unit): T
+    fun run(
+        updateStatus: (String) -> Unit,
+        updateGlobalStatus: (String) -> Unit
+    ): T
 }
 
 class ConsoleMultiThreadWorkers<T>(
@@ -25,11 +24,8 @@ class ConsoleMultiThreadWorkers<T>(
         repeat(threadCount + 1) { println() }
     }
 
-    fun submit(task: TaskWithStatus<T>): Future<Result<T>> {
-        return submit(TaskWithTwoStatuses { updateStatus, _ -> task.run(updateStatus) })
-    }
 
-    fun submit(task: TaskWithTwoStatuses<T>): Future<Result<T>> {
+    fun submit(task: TaskWithStatus<T>): Future<Result<T>> {
         return executor.submit(Callable {
             val threadId = Thread.currentThread().id
             val lineIndex = workerLineMap.getOrPut(threadId) { nextLineIndex.getAndIncrement() % threadCount }
@@ -50,13 +46,14 @@ class ConsoleMultiThreadWorkers<T>(
         })
     }
 
-    fun submit(task: ((String) -> Unit) -> T): Future<Result<T>> {
-        return submit(TaskWithStatus { task(it) })
-    }
 
-    @JvmName("submitWithTwo")
-    fun submit(task: ((String) -> Unit, (String) -> Unit) -> T): Future<Result<T>> {
-        return submit(TaskWithTwoStatuses { updateStatus, updateGlobalStatus -> task(updateStatus, updateGlobalStatus) })
+    fun submit(
+            task: (
+                    updateStatus: (String) -> Unit,
+                    updateGlobalStatus: (String) -> Unit
+                ) -> T
+    ): Future<Result<T>> {
+        return submit(TaskWithStatus { updateStatus, updateGlobalStatus -> task(updateStatus, updateGlobalStatus) })
     }
 
     @Synchronized

@@ -2,6 +2,7 @@ package tga.backup.files
 
 import com.google.gson.JsonObject
 import io.github.oshai.kotlinlogging.KotlinLogging
+import tga.backup.log.formatFileSize
 import tga.backup.log.toLog
 import tga.backup.yandex.YandexResponseException
 import tga.backup.yandex.YandexResumableUploader
@@ -9,6 +10,7 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.Phaser
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class YandexFileOps(
@@ -140,9 +142,19 @@ class YandexFileOps(
         }
     }
 
-    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit) {
+    override fun copyFile(
+        action: String,
+        from: String,
+        to: String,
+        srcFileOps: FileOps,
+        override: Boolean,
+        updateStatus: (String) -> Unit,
+        totalSize: Long,
+        totalLoadedSize: AtomicLong,
+        updateGlobalStatus: (String) -> Unit,
+    ) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(action, from, to, override, updateStatus)
+            is LocalFileOps -> uploadToYandex(action, from, to, override, updateStatus, totalSize, totalLoadedSize, updateGlobalStatus)
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -170,8 +182,17 @@ class YandexFileOps(
         )
     }
 
-    private fun uploadToYandex(action: String, from: String, to: String, override: Boolean, updateStatus: (String) -> Unit) {
-        val sl = StatusListener(action, from, updateStatus)
+    private fun uploadToYandex(
+        action: String,
+        from: String,
+        to: String,
+        override: Boolean,
+        updateStatus: (String) -> Unit,
+        totalSize: Long,
+        totalLoadedSize: AtomicLong,
+        updateGlobalStatus: (String) -> Unit,
+    ) {
+        val sl = StatusListener(action, from, updateStatus, totalSize, totalLoadedSize, updateGlobalStatus)
         try {
             yandex.uploadFile(File(from), to.toYandexPath(), sl::updateProgress)
             sl.printDone()
@@ -183,13 +204,23 @@ class YandexFileOps(
     }
 
 
-    class StatusListener(val action: String, val fileName: String, val updateStatus: (String) -> Unit) {
+    class StatusListener(
+        val action: String,
+        val fileName: String,
+        val updateStatus: (String) -> Unit,
+        val totalSize: Long,
+        val totalLoadedSize: AtomicLong,
+        val updateGlobalStatus: (String) -> Unit
+    ) {
 
         var lastLoaded: Long = 0
         var lastTotal: Long = 1
         var lastUpdateTs: Long = 0
+        val totalSizeStr: String = formatFileSize(totalSize)
 
         fun updateProgress(loaded: Long, total: Long) {
+            val loadedDelta = loaded - lastLoaded
+            totalLoadedSize.addAndGet(loadedDelta)
             lastLoaded = loaded
             lastTotal = total
             val now = System.currentTimeMillis()
@@ -219,6 +250,14 @@ class YandexFileOps(
                 "$action $shortName [$percentStr%] Error: ${err.toLog()}"
             }
             updateStatus(status)
+
+            val loadedGlobal = totalLoadedSize.get()
+            val globalPrcNum = if (totalSize > 0) (loadedGlobal.toDouble() / totalSize.toDouble()) * 100 else 0.0
+            val globalPrc = "%6.2f".format(globalPrcNum)
+            val loadedSizeStr = formatFileSize(loadedGlobal)
+
+
+            updateGlobalStatus("Global status: ${globalPrc}%  $loadedSizeStr / $totalSizeStr")
         }
     }
 

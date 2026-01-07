@@ -2,6 +2,7 @@ package tga.backup.files
 
 import tga.backup.log.logWrap
 import tga.backup.utils.ConsoleMultiThreadWorkers
+import java.util.concurrent.atomic.AtomicLong
 
 abstract class FileOps(
     protected val filesSeparator: String
@@ -23,14 +24,16 @@ abstract class FileOps(
     fun copyFiles(srcFileOps: FileOps, srcFolder: String, filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, override: Boolean = false, workers: ConsoleMultiThreadWorkers<Unit>): List<Result<Unit>> {
         val sortedFilesList = filesList.filter { !it.isDirectory }.sorted()
         val futures = mutableListOf<java.util.concurrent.Future<Result<Unit>>>()
+        val totalSize = sortedFilesList.sumOf { it.size }
+        val totalLoadedSize = AtomicLong(0L)
 
         for (fileInfo in sortedFilesList) {
             val srcPath = "${srcFolder}${filesSeparator}${fileInfo.name}"
             val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
             val action = if (override) "overriding" else "copying   "
 
-            futures.add(workers.submit { updateStatus ->
-                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, override, updateStatus)
+            futures.add(workers.submit { updateStatus, updateGlobalStatus ->
+                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, override, updateStatus, totalSize, totalLoadedSize, updateGlobalStatus)
             })
         }
         workers.waitForCompletion()
@@ -59,7 +62,17 @@ abstract class FileOps(
 
     // platform specific implementation part
     protected abstract fun mkDirs(dirPath: String)
-    protected abstract fun copyFile(action: String, from: String,  to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit)
+    protected abstract fun copyFile(
+        action: String,
+        from: String,
+        to: String,
+        srcFileOps: FileOps,
+        override: Boolean,
+        updateStatus: (String) -> Unit,
+        totalSize: Long,
+        totalLoadedSize: AtomicLong,
+        updateGlobalStatus: (String) -> Unit,
+    )
     protected abstract fun deleteFileOrFolder(path: String)
 
 }
