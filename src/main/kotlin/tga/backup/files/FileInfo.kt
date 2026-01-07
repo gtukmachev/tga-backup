@@ -4,6 +4,8 @@ data class FileInfo(
     val name: String,
     val isDirectory: Boolean,
     val size: Long,
+    val creationTime: Long = 0L,
+    val lastModifiedTime: Long = 0L,
 ) : Comparable<FileInfo> {
 
     val md5: String? get() = md5Value
@@ -24,6 +26,8 @@ data class FileInfo(
         if (name != other.name) return false
         if (isDirectory != other.isDirectory) return false
         if (size != other.size) return false
+        if (creationTime != other.creationTime) return false
+        if (lastModifiedTime != other.lastModifiedTime) return false
         if (md5 != other.md5) return false
 
         return true
@@ -33,6 +37,8 @@ data class FileInfo(
         var result = name.hashCode()
         result = 31 * result + isDirectory.hashCode()
         result = 31 * result + size.hashCode()
+        result = 31 * result + creationTime.hashCode()
+        result = 31 * result + lastModifiedTime.hashCode()
         result = 31 * result + (md5?.hashCode() ?: 0)
         return result
     }

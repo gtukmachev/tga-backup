@@ -30,20 +30,33 @@ class LocalFileOps : FileOps("/") {
             val rootPathWithSeparator = if (rootPath.endsWith(filesSeparator)) rootPath else "$rootPath$filesSeparator"
 
             // calculating md5 hash for each file (slow operation)
-            localFiles.forEach {
-                if (!it.isDirectory) {
+            val filesByFolder = localFiles.filter { !it.isDirectory }.groupBy {
+                val lastSeparatorIndex = it.name.lastIndexOf(filesSeparator)
+                if (lastSeparatorIndex == -1) "" else it.name.substring(0, lastSeparatorIndex)
+            }
+
+            for ((folderPath, filesInFolder) in filesByFolder) {
+                val folderFile = File(rootPathWithSeparator + folderPath)
+                val cache = Md5Cache(folderFile)
+
+                for (it in filesInFolder) {
                     val md5prcDouble = if (totalSize > 0) (scannedSize.toDouble() / totalSize.toDouble() * 100.0) else 0.0
                     val md5prc = "%6.2f".format(md5prcDouble)
                     updateGlobalStatus("md5 calculating: ${formatFileSize(scannedSize)} / $totalSizeStr  ${md5prc}% - ${it.name}")
 
                     try {
-                        val md5 = File(rootPathWithSeparator + it.name).calculateMd5()
+                        var md5 = cache.getMd5(it)
+                        if (md5 == null) {
+                            md5 = File(rootPathWithSeparator + it.name).calculateMd5()
+                            cache.updateMd5(it, md5)
+                        }
                         it.setupMd5(md5)
                     } catch (e: Throwable) {
                         it.readException = e
                     }
                     scannedSize += it.size
                 }
+                cache.save()
             }
 
             return@submit localFiles
@@ -83,11 +96,22 @@ class LocalFileOps : FileOps("/") {
                     name = path + it.name,
                     isDirectory = it.isDirectory,
                     size = if (it.isDirectory) 10L else it.length(),
+                    creationTime = it.getCreationTime(),
+                    lastModifiedTime = it.lastModified(),
                 )
             )
         }
         content.forEach { if (it.isDirectory) it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus) }
         return outSet
+    }
+
+    private fun File.getCreationTime(): Long {
+        return try {
+            val attr = java.nio.file.Files.readAttributes(this.toPath(), java.nio.file.attribute.BasicFileAttributes::class.java)
+            attr.creationTime().toMillis()
+        } catch (e: Exception) {
+            0L
+        }
     }
 
     private fun File.calculateMd5(): String {
