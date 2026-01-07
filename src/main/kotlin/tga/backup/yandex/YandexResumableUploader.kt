@@ -178,4 +178,10 @@ class YandexResumableUploader(
             }
         }
     }
+
+    fun close() {
+        http.dispatcher.executorService.shutdown()
+        http.connectionPool.evictAll()
+        http.cache?.close()
+    }
 }

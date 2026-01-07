@@ -107,6 +107,7 @@ class YandexFileOps(
         scan(fullRootPath)
         phaser.arriveAndAwaitAdvance()
         executor.shutdown()
+        executor.awaitTermination(1, java.util.concurrent.TimeUnit.MINUTES)
 
         error.get()?.let { throw it }
         println(" ...done")
@@ -162,6 +163,10 @@ class YandexFileOps(
     override fun deleteFileOrFolder(path: String) {
         val notPermanently = false
         yandex.delete(path.toYandexPath(), notPermanently)
+    }
+
+    override fun close() {
+        yandex.close()
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////

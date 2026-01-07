@@ -75,4 +75,6 @@ abstract class FileOps(
     )
     protected abstract fun deleteFileOrFolder(path: String)
 
+    abstract fun close()
+
 }

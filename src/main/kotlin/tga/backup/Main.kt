@@ -39,6 +39,8 @@ fun main(args: Array<String>) {
 
     if (actions.toAddFiles.isEmpty() && actions.toDeleteFiles.isEmpty() && actions.toOverrideFiles.isEmpty()) {
         logger.info { "The source and destination are already exactly the same. No actions required." }
+        srcFileOps.close()
+        dstFileOps.close()
         return
     }
 
@@ -50,12 +52,21 @@ fun main(args: Array<String>) {
 
     print("Continue (Y/N)?>")
     val continueAnswer = readln()
-    if (continueAnswer !in setOf("Y", "y")) return
+    if (continueAnswer !in setOf("Y", "y")) {
+        srcFileOps.close()
+        dstFileOps.close()
+        return
+    }
 
     val results = mutableListOf<Result<Unit>>()
-    results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
-    results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
-    results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+    try {
+        results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
+        results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+        results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+    } finally {
+        srcFileOps.close()
+        dstFileOps.close()
+    }
 
     if (excludedFiles.isNotEmpty()) {
         println("\nEXCLUDED FILES (due to read errors):")

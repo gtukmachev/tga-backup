@@ -49,7 +49,11 @@ class LocalFileOps : FileOps("/") {
             return@submit localFiles
         }
 
-        return result.get().getOrThrow()
+        try {
+            return result.get().getOrThrow()
+        } finally {
+            workers.waitForCompletion()
+        }
     }
 
     override fun mkDirs(dirPath: String) {
@@ -65,6 +69,9 @@ class LocalFileOps : FileOps("/") {
 
     override fun deleteFileOrFolder(path: String) {
         File(path).delete()
+    }
+
+    override fun close() {
     }
 
     private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String, updateStatus: (String) -> Unit): Set<FileInfo> {
