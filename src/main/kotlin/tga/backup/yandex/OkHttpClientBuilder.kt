@@ -20,6 +20,7 @@ object OkHttpClientBuilder {
         // Keep some idle connections to avoid re-opening TCP/TLS every time.
         // keepAliveDuration = 5 minutes.
         val connectionPool = ConnectionPool(parallelThreads + 2, 5L, TimeUnit.MINUTES)
+        val spoofUserAgent = generateSpoofUserAgent()
 
         return OkHttpClient.Builder()
             //.protocols(listOf(okhttp3.Protocol.HTTP_1_1))
@@ -33,7 +34,6 @@ object OkHttpClientBuilder {
             .retryOnConnectionFailure(true)
             // 3. Добавляем интерцептор для подмены User-Agent
             .addInterceptor { chain ->
-                val spoofUserAgent = generateSpoofUserAgent()
 
                 val originalRequest = chain.request()
                 val newRequest = originalRequest.newBuilder()
@@ -58,9 +58,6 @@ object OkHttpClientBuilder {
         // 2. Хардкод ID, как в скрипте (видимо, это ID "типовой" установки)
         val id = "6BD01244C7A94456BBCEE7EEC990AEAD"
         val id2 = "0F370CD40C594A4783BC839C846B999C"
-
-        // 3. Собираем JSON вручную, чтобы гарантировать отсутствие пробелов
-        // Python: separators=(',', ':') -> {"key":"value"}
         val jsonParams = "{" +
                 "\"os\":\"windows\"," +
                 "\"dtype\":\"ydisk3\"," +
