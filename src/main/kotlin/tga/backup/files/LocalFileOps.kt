@@ -8,12 +8,24 @@ class LocalFileOps : FileOps("/") {
 
 
     override fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
+
+        // loading of files list phase
         val rootFile = File(rootPath)
         if (!rootFile.exists()) {
             if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $rootPath")
             return emptySet()
         }
-        return rootFile.listFilesRecursive(HashSet(), "")
+        val localFiles = rootFile.listFilesRecursive(HashSet(), "")
+
+        // calculating md5 hash for each file (slow operation)
+        localFiles.forEach {
+            if (!it.isDirectory) {
+                val md5 = File(it.name).calculateMd5()
+                it.setupMd5(md5)
+            }
+        }
+
+        return localFiles
     }
 
     override fun mkDirs(dirPath: String) {
@@ -39,7 +51,6 @@ class LocalFileOps : FileOps("/") {
                     name = path + it.name,
                     isDirectory = it.isDirectory,
                     size = if (it.isDirectory) 10L else it.length(),
-                    md5 = if (it.isDirectory) null else it.calculateMd5()
                 )
             )
         }

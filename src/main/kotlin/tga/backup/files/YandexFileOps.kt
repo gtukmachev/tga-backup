@@ -172,14 +172,13 @@ class YandexFileOps(
         val type = this.get("type").asString
         val isDir = type == "dir"
         val size = if (isDir) 10L else this.get("size")?.asLong ?: 0L
-        val md5 = this.get("md5")?.asString
+        val md5 = this.get("md5").asString
 
         return FileInfo(
             name = path.removePrefix(commonPrefix).removePrefix("/"),
             isDirectory = isDir,
             size = size,
-            md5 = md5
-        )
+        ).apply { setupMd5(md5) }
     }
 
     private fun uploadToYandex(
