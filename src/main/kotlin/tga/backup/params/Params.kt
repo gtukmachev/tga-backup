@@ -5,6 +5,7 @@ data class Params(
     val dstFolder: String,
     val dryRun: Boolean,
     val verbose: Boolean,
+    val devMode: Boolean,
     val parallelThreads: Int = 10,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
@@ -17,6 +18,7 @@ data class Params(
                     |   dstFolder='$dstFolder',
                     |   dryRun=$dryRun,
                     |   verbose=$verbose,
+                    |   devMode=$devMode,
                     |   parallelThreads=$parallelThreads,
                     |   yandexUser='$yandexUser',
                     |   yandexToken='${yandexToken?.let{"***"} ?: ""}'
@@ -30,6 +32,7 @@ fun Array<String>.readParams() = Params(
     dstFolder = getArg("-d"),
     dryRun = getBoolArg("--dry-run"),
     verbose = getBoolArg("--verbose"),
+    devMode = getBoolArg("-dev"),
     parallelThreads = getArgOptional("-p")?.toInt() ?: 10,
     yandexUser = getArgOptional("-yu") ?: System.getenv("BACKUP_YANDEX_USER"),
     yandexToken = getArgOptional("-yt") ?: System.getenv("BACKUP_YANDEX_TOKEN"),

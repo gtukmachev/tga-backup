@@ -12,6 +12,7 @@ class ResumableRequestBody(
     private val file: File,
     private val contentType: MediaType?,
     private val offset: Long, // How many bytes are already on the server (skip them)
+    private val devMode: Boolean = false,
     private val onProgress: ProgressCallback
 ) : RequestBody() {
 
@@ -22,7 +23,8 @@ class ResumableRequestBody(
     override fun contentLength(): Long = file.length() - offset
 
     override fun writeTo(sink: BufferedSink) {
-        val buffer = ByteArray(8 * 1024) // 8 KB buffer
+        val bufferSize = if (devMode) 1024 else 8 * 1024
+        val buffer = ByteArray(bufferSize)
         var inputStream: FileInputStream? = null
 
         try {
@@ -42,6 +44,10 @@ class ResumableRequestBody(
 
                 // Report total progress (offset + what we just transferred)
                 onProgress(offset + uploadedNow, file.length())
+
+                if (devMode) {
+                    Thread.sleep(900)
+                }
             }
         } finally {
             inputStream?.close()

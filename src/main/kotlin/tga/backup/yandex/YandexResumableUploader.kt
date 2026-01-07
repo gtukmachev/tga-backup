@@ -11,7 +11,8 @@ import java.io.File
 
 class YandexResumableUploader(
     private val token: String,
-    private val http: OkHttpClient
+    private val http: OkHttpClient,
+    private val devMode: Boolean = false,
 ) {
 
     private val logger = KotlinLogging.logger {  }
@@ -108,7 +109,7 @@ class YandexResumableUploader(
     // Send data using the PUT method (for fresh uploads)
     private fun performPut(url: String, file: File, onProgress: ProgressCallback) {
         val contentType = "application/octet-stream".toMediaType()
-        val body = ResumableRequestBody(file, contentType, 0L, onProgress)
+        val body = ResumableRequestBody(file, contentType, 0L, devMode, onProgress)
 
         val request = Request.Builder()
             .url(url)
@@ -162,7 +163,7 @@ class YandexResumableUploader(
         // Tus requires this Content-Type
         val contentType = "application/offset+octet-stream".toMediaType()
 
-        val body = ResumableRequestBody(file, contentType, offset, onProgress)
+        val body = ResumableRequestBody(file, contentType, offset, devMode, onProgress)
 
         val request = Request.Builder()
             .url(url)
