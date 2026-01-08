@@ -63,8 +63,11 @@ private val argToConfigMap = mapOf(
 private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion")
 
 fun Array<String>.readParams(): Params {
-    val profile = if (isNotEmpty() && !get(0).startsWith("-")) get(0) else null
-    val argsList = if (profile != null) sliceArray(1 until size) else this
+    val (profile, argsList) = if (isNotEmpty() && !get(0).startsWith("-")) {
+        get(0) to sliceArray(1 until size)
+    } else {
+        "default" to this
+    }
 
     val cliMap = mutableMapOf<String, Any>()
     var i = 0
@@ -101,7 +104,7 @@ fun Array<String>.readParams(): Params {
         ConfigFactory.empty()
     }
 
-    val defaultConfig = ConfigFactory.load() // loads application.conf
+    val defaultConfig = ConfigFactory.parseResources("application.conf") // loads application.conf only, avoiding system properties clashing with 'path'
 
     val mergedConfig = cliConfig
         .withFallback(profileConfig)
@@ -139,9 +142,9 @@ private fun updateProfileFile(profileName: String, cliMap: Map<String, Any>, cur
             return
         }
         println("Changes for profile '$profileName':")
-        println("--- Current ---")
+        println("\n--- Current ---")
         println(currentConfigString)
-        println("--- New ---")
+        println("\n--- New ---")
         println(newConfigString)
         print("Do you want to overwrite? (y/N): ")
         val answer = readLine()
