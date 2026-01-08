@@ -1,5 +1,8 @@
 package tga.backup.params
 
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigRenderOptions
 import java.io.File
 
 data class Params(
@@ -30,7 +33,7 @@ data class Params(
                     |   noDeletion=$noDeletion,
                     |   parallelThreads=$parallelThreads,
                     |   yandexUser='$yandexUser',
-                    |   yandexToken='${yandexToken?.let{"***"} ?: ""}'
+                    |   yandexToken='${yandexToken?.let { "***" } ?: ""}'
                     |)
                 """.trimMargin()
     }
@@ -44,29 +47,113 @@ fun normalizePath(root: String, relative: String): String {
     return "$r$separator$p"
 }
 
-fun Array<String>.readParams() = Params(
-    srcRoot = getArg("-sr", "--source-root"),
-    dstRoot = getArg("-dr", "--destination-root"),
-    path = getArgOptional("-p", "--path") ?: "*",
-    dryRun = getBoolArg("--dry-run"),
-    verbose = getBoolArg("--verbose"),
-    devMode = getBoolArg("-dev"),
-    noDeletion = getBoolArg("-nd") || getBoolArg("--no-deletion"),
-    parallelThreads = (getArgOptional("-t", "--threads") ?: "10").toInt(),
-    yandexUser = getArgOptional("-yu") ?: System.getenv("BACKUP_YANDEX_USER"),
-    yandexToken = getArgOptional("-yt") ?: System.getenv("BACKUP_YANDEX_TOKEN"),
+private val argToConfigMap = mapOf(
+    "-sr" to "srcRoot", "--source-root" to "srcRoot",
+    "-dr" to "dstRoot", "--destination-root" to "dstRoot",
+    "-p" to "path", "--path" to "path",
+    "--dry-run" to "dryRun",
+    "--verbose" to "verbose",
+    "-dev" to "devMode",
+    "-nd" to "noDeletion", "--no-deletion" to "noDeletion",
+    "-t" to "parallelThreads", "--threads" to "parallelThreads",
+    "-yu" to "yandexUser",
+    "-yt" to "yandexToken"
 )
 
-fun Array<String>.getArg(vararg args: String): String = getArgOptional(*args) ?: throw ArgumentIsMissed(args.joinToString(", "))
+private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion")
 
-fun Array<String>.getBoolArg(arg: String): Boolean = indexOf(arg) != -1
+fun Array<String>.readParams(): Params {
+    val profile = if (isNotEmpty() && !get(0).startsWith("-")) get(0) else null
+    val argsList = if (profile != null) sliceArray(1 until size) else this
 
-fun Array<String>.getArgOptional(vararg args: String): String? {
-    for (arg in args) {
-        val i = indexOf(arg)
-        if (i != -1 && i < (size - 1)) return get(i + 1)
+    val cliMap = mutableMapOf<String, Any>()
+    var i = 0
+    while (i < argsList.size) {
+        val arg = argsList[i]
+        val configKey = argToConfigMap[arg]
+        if (configKey != null) {
+            if (booleanArgs.contains(arg)) {
+                cliMap[configKey] = true
+            } else if (i + 1 < argsList.size) {
+                val value = argsList[i + 1]
+                cliMap[configKey] = when (configKey) {
+                    "parallelThreads" -> value.toInt()
+                    else -> value
+                }
+                i++
+            }
+        }
+        i++
     }
-    return null
+
+    val updateProfile = argsList.contains("-up") || argsList.contains("--update-profile")
+
+    val cliConfig = ConfigFactory.parseMap(cliMap)
+
+    val profileConfig = if (profile != null) {
+        val profileFile = File(System.getProperty("user.home"), ".tga-backup/$profile.conf")
+        if (profileFile.exists()) {
+            ConfigFactory.parseFile(profileFile)
+        } else {
+            ConfigFactory.empty()
+        }
+    } else {
+        ConfigFactory.empty()
+    }
+
+    val defaultConfig = ConfigFactory.load() // loads application.conf
+
+    val mergedConfig = cliConfig
+        .withFallback(profileConfig)
+        .withFallback(defaultConfig)
+
+    if (updateProfile && profile != null) {
+        updateProfileFile(profile, cliMap, profileConfig)
+    }
+
+    return Params(
+        srcRoot = mergedConfig.getString("srcRoot"),
+        dstRoot = mergedConfig.getString("dstRoot"),
+        path = mergedConfig.getString("path"),
+        dryRun = mergedConfig.getBoolean("dryRun"),
+        verbose = mergedConfig.getBoolean("verbose"),
+        devMode = mergedConfig.getBoolean("devMode"),
+        noDeletion = mergedConfig.getBoolean("noDeletion"),
+        parallelThreads = mergedConfig.getInt("parallelThreads"),
+        yandexUser = if (mergedConfig.hasPath("yandexUser")) mergedConfig.getString("yandexUser").let { if (it.isBlank()) null else it } else null,
+        yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null
+    )
+}
+
+private fun updateProfileFile(profileName: String, cliMap: Map<String, Any>, currentProfileConfig: Config) {
+    val profileFile = File(System.getProperty("user.home"), ".tga-backup/$profileName.conf")
+    val newConfig = ConfigFactory.parseMap(cliMap).withFallback(currentProfileConfig)
+    
+    val renderOptions = ConfigRenderOptions.defaults().setOriginComments(false).setJson(false).setFormatted(true)
+    val newConfigString = newConfig.root().render(renderOptions)
+
+    if (profileFile.exists()) {
+        val currentConfigString = currentProfileConfig.root().render(renderOptions)
+        if (currentConfigString == newConfigString) {
+            println("Profile '$profileName' is already up to date.")
+            return
+        }
+        println("Changes for profile '$profileName':")
+        println("--- Current ---")
+        println(currentConfigString)
+        println("--- New ---")
+        println(newConfigString)
+        print("Do you want to overwrite? (y/N): ")
+        val answer = readLine()
+        if (answer?.lowercase() != "y") {
+            println("Update cancelled.")
+            return
+        }
+    }
+
+    profileFile.parentFile.mkdirs()
+    profileFile.writeText(newConfigString)
+    println("Profile '$profileName' updated at ${profileFile.absolutePath}")
 }
 
 class ArgumentIsMissed(arg: String) : Exception("Argument $arg is expected!")
