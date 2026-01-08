@@ -10,22 +10,25 @@ import java.util.concurrent.atomic.AtomicLong
 class LocalFileOps : FileOps("/") {
 
 
-    override fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
+    override fun
+
+            getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
         val workers = ConsoleMultiThreadWorkers<Set<FileInfo>>(1) // single thread - we use this engine only for status printing
 
         val result = workers.submit { updateStatus, updateGlobalStatus ->
-            updateStatus("Scanning: $rootPath")
             val rootFile = File(rootPath)
             if (!rootFile.exists()) {
                 if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $rootPath")
                 return@submit emptySet()
             }
-            val localFiles = rootFile.listFilesRecursive(HashSet(), "", updateStatus)
+            val localFiles = rootFile.listFilesRecursive(HashSet(), "", updateStatus, updateGlobalStatus)
             val totalSize: Long = localFiles.sumOf { it.size }
             val totalSizeStr = formatFileSize(totalSize)
             var scannedSize: Long = 0L
             val numberOfFiles = localFiles.sumOf { if (it.isDirectory) 0L else 1L }
-            updateStatus("Scanned: [files: ${formatNumber(numberOfFiles)}] [size: ${formatFileSize(totalSize)}]")
+            updateGlobalStatus("Listed files: ${formatNumber(numberOfFiles)} [total size: ${formatFileSize(totalSize)}]")
+
+            println("\n\nScanning files content (building md5 hashes):\n\n")
 
             val rootPathWithSeparator = if (rootPath.endsWith(filesSeparator)) rootPath else "$rootPath$filesSeparator"
 
@@ -43,7 +46,7 @@ class LocalFileOps : FileOps("/") {
 
                 for (it in filesInFolder) {
                     syncStatus.formatProgress()
-
+                    updateStatus(it.name)
                     try {
                         var md5 = cache.getMd5(it)
                         if (md5 == null) {
@@ -58,7 +61,6 @@ class LocalFileOps : FileOps("/") {
                 }
                 cache.save()
             }
-
             return@submit localFiles
         }
 
@@ -92,8 +94,8 @@ class LocalFileOps : FileOps("/") {
     override fun close() {
     }
 
-    private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String, updateStatus: (String) -> Unit): Set<FileInfo> {
-        updateStatus("Scanning: ${this.path}")
+    private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String, updateStatus: (String) -> Unit, updateGlobalStatus: (String) -> Unit): Set<FileInfo> {
+        updateStatus("Listing: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
             if (it.name == ".md5" || it.name.startsWith("._") || it.name == "Thumbs.db" || it.name == "ZbThumbnail.info") {
@@ -112,9 +114,10 @@ class LocalFileOps : FileOps("/") {
         }
         content.forEach {
             if (it.isDirectory && it.name != ".md5" && !it.name.startsWith("._") && it.name != "Thumbs.db" && it.name != "ZbThumbnail.info") {
-                it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus)
+                it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus, updateGlobalStatus)
             }
         }
+        updateGlobalStatus("Listed files: ${formatNumber(outSet.size)}]")
         return outSet
     }
 
