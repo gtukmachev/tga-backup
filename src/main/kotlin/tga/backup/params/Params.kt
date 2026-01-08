@@ -110,11 +110,7 @@ fun Array<String>.readParams(): Params {
         .withFallback(profileConfig)
         .withFallback(defaultConfig)
 
-    if (updateProfile && profile != null) {
-        updateProfileFile(profile, cliMap, profileConfig)
-    }
-
-    return Params(
+    val params = Params(
         srcRoot = mergedConfig.getString("srcRoot"),
         dstRoot = mergedConfig.getString("dstRoot"),
         path = mergedConfig.getString("path"),
@@ -126,6 +122,15 @@ fun Array<String>.readParams(): Params {
         yandexUser = if (mergedConfig.hasPath("yandexUser")) mergedConfig.getString("yandexUser").let { if (it.isBlank()) null else it } else null,
         yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null
     )
+
+    if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")
+    if (params.dstRoot.isBlank()) throw ArgumentIsMissed("-dr (--destination-root)")
+
+    if (updateProfile && profile != null) {
+        updateProfileFile(profile, cliMap, profileConfig)
+    }
+
+    return params
 }
 
 private fun updateProfileFile(profileName: String, cliMap: Map<String, Any>, currentProfileConfig: Config) {
