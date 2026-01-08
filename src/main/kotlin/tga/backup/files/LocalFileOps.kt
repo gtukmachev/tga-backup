@@ -5,7 +5,6 @@ import tga.backup.log.formatNumber
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.io.File
 import java.security.MessageDigest
-import java.util.concurrent.atomic.AtomicLong
 
 class LocalFileOps : FileOps("/") {
 
@@ -73,7 +72,7 @@ class LocalFileOps : FileOps("/") {
         File(dirPath).mkdirs()
     }
 
-    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit, totalSize: Long, totalLoadedSize: AtomicLong, updateGlobalStatus: (String) -> Unit) {
+    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit, syncStatus: SyncStatus) {
         when (srcFileOps) {
             is LocalFileOps -> File(from).copyTo(File(to), overwrite = true)
             else -> throw CopyDirectionIsNotSupportedYet()

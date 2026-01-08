@@ -10,7 +10,6 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.Phaser
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class YandexFileOps(
@@ -150,12 +149,10 @@ class YandexFileOps(
         srcFileOps: FileOps,
         override: Boolean,
         updateStatus: (String) -> Unit,
-        totalSize: Long,
-        totalLoadedSize: AtomicLong,
-        updateGlobalStatus: (String) -> Unit,
+        syncStatus: SyncStatus,
     ) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(action, from, to, override, updateStatus, totalSize, totalLoadedSize, updateGlobalStatus)
+            is LocalFileOps -> uploadToYandex(action, from, to, override, updateStatus, syncStatus)
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -177,13 +174,13 @@ class YandexFileOps(
         val type = this.get("type").asString
         val isDir = type == "dir"
         val size = if (isDir) 10L else this.get("size")?.asLong ?: 0L
-        val md5 = this.get("md5").asString
+        val md5_ = this.get("md5")?.asString
 
         return FileInfo(
             name = path.removePrefix(commonPrefix).removePrefix("/"),
             isDirectory = isDir,
             size = size,
-        ).apply { setupMd5(md5) }
+        ).apply { if(md5_ != null) setupMd5(md5_) }
     }
 
     private fun uploadToYandex(
@@ -192,11 +189,9 @@ class YandexFileOps(
         to: String,
         override: Boolean,
         updateStatus: (String) -> Unit,
-        totalSize: Long,
-        totalLoadedSize: AtomicLong,
-        updateGlobalStatus: (String) -> Unit,
+        syncStatus: SyncStatus,
     ) {
-        val sl = StatusListener(action, from, updateStatus, totalSize, totalLoadedSize, updateGlobalStatus)
+        val sl = StatusListener(action, from, updateStatus, syncStatus)
         try {
             yandex.uploadFile(File(from), to.toYandexPath(), sl::updateProgress)
             sl.printDone()
@@ -212,19 +207,20 @@ class YandexFileOps(
         val action: String,
         val fileName: String,
         val updateStatus: (String) -> Unit,
-        val totalSize: Long,
-        val totalLoadedSize: AtomicLong,
-        val updateGlobalStatus: (String) -> Unit
+        val syncStatus: SyncStatus,
     ) {
 
         var lastLoaded: Long = 0
         var lastTotal: Long = 1
         var lastUpdateTs: Long = 0
-        val totalSizeStr: String = formatFileSize(totalSize)
+        val totalSizeStr: String = formatFileSize(syncStatus.totalSize)
+        private val speedCalculator = SpeedCalculator()
 
         fun updateProgress(loaded: Long, total: Long) {
             val loadedDelta = loaded - lastLoaded
-            totalLoadedSize.addAndGet(loadedDelta)
+            syncStatus.updateProgress(loadedDelta)
+            speedCalculator.addProgress(loaded)
+
             lastLoaded = loaded
             lastTotal = total
             val now = System.currentTimeMillis()
@@ -240,28 +236,23 @@ class YandexFileOps(
 
         fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
             val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
-            val dots = (prc * 100).toInt()
-            var progressBar = ".".repeat(dots).padEnd(100)
+            val dots = (prc * 90).toInt()
+            var progressBar = ".".repeat(dots).padEnd(90)
             if (isDone) progressBar += " DONE "
 
             val fileNameLen = 50
             val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
+            val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
 
             val status = if (err == null) {
-                "$action $shortName [$percentStr% $progressBar]"
+                "$action $shortName [$percentStr% $speedStr/s $progressBar]"
             } else {
                 "$action $shortName [$percentStr%] Error: ${err.toLog()}"
             }
             updateStatus(status)
 
-            val loadedGlobal = totalLoadedSize.get()
-            val globalPrcNum = if (totalSize > 0) (loadedGlobal.toDouble() / totalSize.toDouble()) * 100 else 0.0
-            val globalPrc = "%6.2f".format(globalPrcNum)
-            val loadedSizeStr = formatFileSize(loadedGlobal)
-
-
-            updateGlobalStatus("Global status: ${globalPrc}%  $loadedSizeStr / $totalSizeStr")
+            syncStatus.formatProgress()
         }
     }
 
