@@ -15,14 +15,17 @@ fun printLogo() {
             |
             |    how to run:
             |
-            |    $> backup -s <source> -d <destination> <params...>
+            |    $> backup -sr <source-root> -dr <destination-root> [-p <path>] <params...>
             |
             |   Parameters:
-            |      --dry-run   - to do not perform real file operations
-            |      --show-src  - prints content (names) of the source folder
-            |      --show-dst  - prints content (names) of the destination folder
-            |      --verbose   - activates both --show-src an --show-dst
-            |      -y <yandex-token> - optional
+            |      -sr, --source-root      - source root folder
+            |      -dr, --destination-root - destination root folder
+            |      -p,  --path             - relative path to sync (default: *)
+            |      -t,  --threads          - number of parallel threads (default: 10)
+            |      --dry-run               - to do not perform real file operations
+            |      --verbose               - prints content (names) of the source and destination folders
+            |      -yu <yandex-user>       - yandex user name
+            |      -yt <yandex-token>      - yandex token
         """.trimMargin()
     }
 
