@@ -44,10 +44,6 @@ class ResumableRequestBody(
 
                 // Report total progress (offset + what we just transferred)
                 onProgress(offset + uploadedNow, file.length())
-
-                if (devMode) {
-                    Thread.sleep(900)
-                }
             }
         } finally {
             inputStream?.close()

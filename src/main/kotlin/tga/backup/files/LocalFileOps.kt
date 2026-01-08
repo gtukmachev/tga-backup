@@ -5,6 +5,7 @@ import tga.backup.log.formatNumber
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
 class LocalFileOps : FileOps("/") {
 
@@ -28,6 +29,8 @@ class LocalFileOps : FileOps("/") {
 
             val rootPathWithSeparator = if (rootPath.endsWith(filesSeparator)) rootPath else "$rootPath$filesSeparator"
 
+            val syncStatus = SyncStatus(totalSize, AtomicLong(0L), updateGlobalStatus)
+
             // calculating md5 hash for each file (slow operation)
             val filesByFolder = localFiles.filter { !it.isDirectory }.groupBy {
                 val lastSeparatorIndex = it.name.lastIndexOf(filesSeparator)
@@ -39,9 +42,7 @@ class LocalFileOps : FileOps("/") {
                 val cache = Md5Cache(folderFile)
 
                 for (it in filesInFolder) {
-                    val md5prcDouble = if (totalSize > 0) (scannedSize.toDouble() / totalSize.toDouble() * 100.0) else 0.0
-                    val md5prc = "%6.2f".format(md5prcDouble)
-                    updateGlobalStatus("md5 calculating: ${formatFileSize(scannedSize)} / $totalSizeStr  ${md5prc}% - ${it.name}")
+                    syncStatus.formatProgress()
 
                     try {
                         var md5 = cache.getMd5(it)
@@ -53,7 +54,7 @@ class LocalFileOps : FileOps("/") {
                     } catch (e: Throwable) {
                         it.readException = e
                     }
-                    scannedSize += it.size
+                    syncStatus.updateProgress(it.size)
                 }
                 cache.save()
             }
@@ -90,6 +91,10 @@ class LocalFileOps : FileOps("/") {
         updateStatus("Scanning: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
+            if (it.name == ".md5" || it.name.startsWith("._")) {
+                return@forEach
+            }
+
             outSet.add(
                 FileInfo(
                     name = path + it.name,
@@ -100,7 +105,11 @@ class LocalFileOps : FileOps("/") {
                 )
             )
         }
-        content.forEach { if (it.isDirectory) it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus) }
+        content.forEach {
+            if (it.isDirectory && it.name != ".md5" && !it.name.startsWith("._")) {
+                it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus)
+            }
+        }
         return outSet
     }
 

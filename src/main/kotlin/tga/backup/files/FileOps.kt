@@ -1,6 +1,7 @@
 package tga.backup.files
 
 import tga.backup.log.formatFileSize
+import tga.backup.log.formatTime
 import tga.backup.log.logWrap
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -94,11 +95,12 @@ abstract class FileOps(
 
 }
 
-class SpeedCalculator(val windowMillis: Long = 10000) {
+class SpeedCalculator(val windowMillis: Long = 10000, private val clock: () -> Long = { System.currentTimeMillis() }) {
     private val stats = ConcurrentLinkedDeque<Pair<Long, Long>>()
+    private val startTime = clock()
 
     fun addProgress(loaded: Long) {
-        val now = System.currentTimeMillis()
+        val now = clock()
         stats.add(now to loaded)
         val threshold = now - windowMillis
         while (stats.isNotEmpty() && stats.peekFirst()!!.first < threshold) {
@@ -114,6 +116,26 @@ class SpeedCalculator(val windowMillis: Long = 10000) {
         if (durationMs <= 0L) return 0
         val bytes = last.second - first.second
         return (bytes * 1000) / durationMs
+    }
+
+    fun predict(totalSize: Long): String? {
+        val now = clock()
+        if (now - startTime < 3000) return null
+
+        val speed = getSpeed()
+        if (speed <= 0) return null
+
+        val last = stats.peekLast() ?: return null
+        val loaded = last.second
+        val remaining = totalSize - loaded
+        if (remaining <= 0) return null
+
+        val remainingMs = (remaining * 1000) / speed
+        val totalMs = (totalSize * 1000) / speed
+
+        if (totalMs < 10000) return null
+
+        return "(${formatTime(totalMs)} | ${formatTime(remainingMs)})"
     }
 }
 
@@ -138,7 +160,9 @@ class SyncStatus(
         val loadedSizeStr = formatFileSize(loadedGlobal)
         val totalSizeStr = formatFileSize(totalSize)
         val speedStr = formatFileSize(getGlobalSpeed())
+        val prediction = speedCalculator.predict(totalSize)
+        val predictionStr = (prediction ?: "").padStart(30)
 
-        updateGlobalStatus("Global status: ${globalPrc}%  $loadedSizeStr / $totalSizeStr [$speedStr/s]")
+        updateGlobalStatus("Global status: ${globalPrc}%  $loadedSizeStr / $totalSizeStr $predictionStr [$speedStr/s]")
     }
 }

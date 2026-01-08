@@ -79,6 +79,11 @@ class YandexFileOps(
                         val total = embedded?.get("total")?.asInt ?: 0
 
                         items.forEach { item ->
+                            val name = item.get("name").asString
+                            if (name == ".md5" || name.startsWith("._")) {
+                                return@forEach
+                            }
+
                             val type = item.get("type").asString
                             val itemPath = item.get("path").asString
                             if (type == "dir") {
@@ -236,8 +241,14 @@ class YandexFileOps(
 
         fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
             val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
-            val dots = (prc * 90).toInt()
-            var progressBar = ".".repeat(dots).padEnd(90)
+            val dotsCount = (prc * 90).toInt()
+            var progressBar = ".".repeat(dotsCount).padEnd(90)
+
+            val prediction = speedCalculator.predict(lastTotal)
+            if (prediction != null) {
+                progressBar = prediction + progressBar.substring(prediction.length)
+            }
+
             if (isDone) progressBar += " DONE "
 
             val fileNameLen = 50
