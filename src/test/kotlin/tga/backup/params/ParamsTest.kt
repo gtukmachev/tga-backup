@@ -79,4 +79,36 @@ class ParamsTest {
         assertThat(normalizePath("yandex://root", "")).isEqualTo("yandex://root")
         assertThat(normalizePath("/local/root", "")).isEqualTo("/local/root")
     }
+
+    @Test
+    fun `test profile update contains all parameters`() {
+        val profileName = "test-profile-${System.currentTimeMillis()}"
+        val profileFile = File(System.getProperty("user.home"), ".tga-backup/$profileName.conf")
+        try {
+            val args = arrayOf(profileName, "-sr", "src", "-dr", "dst", "-up")
+            
+            // To avoid interactive prompt during test, we ensure the file doesn't exist
+            if (profileFile.exists()) profileFile.delete()
+            
+            args.readParams()
+            
+            assertThat(profileFile).exists()
+            val content = profileFile.readText()
+            
+            // Check for some parameters that are NOT in the command line but should be in the file (from defaults)
+            assertThat(content).contains("path")
+            assertThat(content).contains("dryRun")
+            assertThat(content).contains("parallelThreads")
+            assertThat(content).contains("verbose")
+            
+            // Check for parameters that ARE in the command line
+            assertThat(content).contains("srcRoot")
+            assertThat(content).contains("dstRoot")
+            assertThat(content).contains("src")
+            assertThat(content).contains("dst")
+            
+        } finally {
+            if (profileFile.exists()) profileFile.delete()
+        }
+    }
 }

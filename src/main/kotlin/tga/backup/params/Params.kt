@@ -127,15 +127,17 @@ fun Array<String>.readParams(): Params {
     if (params.dstRoot.isBlank()) throw ArgumentIsMissed("-dr (--destination-root)")
 
     if (updateProfile && profile != null) {
-        updateProfileFile(profile, cliMap, profileConfig)
+        updateProfileFile(profile, cliMap, profileConfig, defaultConfig)
     }
 
     return params
 }
 
-private fun updateProfileFile(profileName: String, cliMap: Map<String, Any>, currentProfileConfig: Config) {
+private fun updateProfileFile(profileName: String, cliMap: Map<String, Any>, currentProfileConfig: Config, defaultConfig: Config) {
     val profileFile = File(System.getProperty("user.home"), ".tga-backup/$profileName.conf")
-    val newConfig = ConfigFactory.parseMap(cliMap).withFallback(currentProfileConfig)
+    val newConfig = ConfigFactory.parseMap(cliMap)
+        .withFallback(currentProfileConfig)
+        .withFallback(defaultConfig)
     
     val renderOptions = ConfigRenderOptions.defaults().setOriginComments(false).setJson(false).setFormatted(true)
     val newConfigString = newConfig.root().render(renderOptions)
