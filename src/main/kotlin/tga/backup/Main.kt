@@ -6,6 +6,7 @@ import tga.backup.log.alignRight
 import tga.backup.log.formatFileSize
 import tga.backup.log.formatNumber
 import tga.backup.logo.printLogo
+import tga.backup.params.ArgumentIsMissed
 import tga.backup.params.Params
 import tga.backup.params.readParams
 import tga.backup.utils.ConsoleMultiThreadWorkers
@@ -18,7 +19,12 @@ fun main(args: Array<String>) {
 
     printLogo()
 
-    val params = args.readParams()
+    val params = try {
+        args.readParams()
+    } catch (e: ArgumentIsMissed) {
+        logger.error { e.message }
+        return
+    }
     println("Current folder = '${File(".").canonicalFile.path}'")
     println(params)
 
