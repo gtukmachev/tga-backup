@@ -1,5 +1,18 @@
 package tga.backup.files
 
+/**
+ * Represents file metadata used for comparison and synchronization.
+ *
+ * IMPORTANT: The equality (equals/hashCode) is based ONLY on:
+ * - name (full path relative to the root)
+ * - isDirectory
+ * - size
+ * - md5 checksum
+ *
+ * Timestamps (creationTime, lastModifiedTime) are NOT included in equality checks.
+ * This is intentional because the same file backed up from different sources or to different destinations
+ * might have different attributes despite having identical content.
+ */
 data class FileInfo(
     val name: String,
     val isDirectory: Boolean,
@@ -26,8 +39,6 @@ data class FileInfo(
         if (name != other.name) return false
         if (isDirectory != other.isDirectory) return false
         if (size != other.size) return false
-        if (creationTime != other.creationTime) return false
-        if (lastModifiedTime != other.lastModifiedTime) return false
         if (md5 != other.md5) return false
 
         return true
@@ -37,8 +48,6 @@ data class FileInfo(
         var result = name.hashCode()
         result = 31 * result + isDirectory.hashCode()
         result = 31 * result + size.hashCode()
-        result = 31 * result + creationTime.hashCode()
-        result = 31 * result + lastModifiedTime.hashCode()
         result = 31 * result + (md5?.hashCode() ?: 0)
         return result
     }

@@ -8,6 +8,7 @@ Its primary focus is creating and maintaining backups, but not synchronization:
   - It compares destination and source, builds plan of actions (copy, override, delete) to minimize traffic;
   - in plans: add detection of files movements (when it was moved from one to another folder in source), to avoid deletion (in destination) and copying to another destination folder.
 
+#### Algorithm and principles
 Comparing file is by: 
   - full name (as primary key) 
   - size (to identify changes), 
