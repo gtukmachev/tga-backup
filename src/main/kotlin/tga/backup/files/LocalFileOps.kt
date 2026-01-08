@@ -96,7 +96,7 @@ class LocalFileOps : FileOps("/") {
         updateStatus("Scanning: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
-            if (it.name == ".md5" || it.name.startsWith("._")) {
+            if (it.name == ".md5" || it.name.startsWith("._") || it.name == "Thumbs.db" || it.name == "ZbThumbnail.info") {
                 return@forEach
             }
 
@@ -111,7 +111,7 @@ class LocalFileOps : FileOps("/") {
             )
         }
         content.forEach {
-            if (it.isDirectory && it.name != ".md5" && !it.name.startsWith("._")) {
+            if (it.isDirectory && it.name != ".md5" && !it.name.startsWith("._") && it.name != "Thumbs.db" && it.name != "ZbThumbnail.info") {
                 it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus)
             }
         }

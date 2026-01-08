@@ -80,7 +80,7 @@ class YandexFileOps(
 
                         items.forEach { item ->
                             val name = item.get("name").asString
-                            if (name == ".md5" || name.startsWith("._")) {
+                            if (name == ".md5" || name.startsWith("._") || name == "Thumbs.db" || name == "ZbThumbnail.info") {
                                 return@forEach
                             }
 
