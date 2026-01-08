@@ -54,6 +54,12 @@ fun main(args: Array<String>) {
     logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
     logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
 
+    if (params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
+        val yellow = "\u001b[33m"
+        val reset = "\u001b[0m"
+        println("${yellow}WARNING: The 'no-deletion' parameter is specified. The deletion phase will be skipped.${reset}")
+    }
+
     printSummary(actions)
 
     print("Continue (Y/N)?>")
@@ -129,10 +135,15 @@ fun runCopying(srcFileOps: FileOps, dstFileOps: FileOps, params: Params, toCopy:
 fun runDeleting(dstFileOps: FileOps, params: Params, toDelete: Set<FileInfo>): List<Result<Unit>> {
     if (toDelete.isEmpty()) return emptyList()
 
+    if (params.noDeletion) {
+        println("\nSkipping deletion phase due to 'no-deletion' parameter.")
+        return emptyList()
+    }
+
     println("\nDeleting:....")
     try {
         return if (toDelete.isNotEmpty())
-            dstFileOps.deleteFiles(toDelete, params.dstFolder, params.dryRun)
+            dstFileOps.deleteFiles(toDelete, params.dstFolder, params.dryRun, params.noDeletion)
         else
             emptyList()
     } finally {

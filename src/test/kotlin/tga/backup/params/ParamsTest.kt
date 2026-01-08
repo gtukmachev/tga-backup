@@ -39,6 +39,18 @@ class ParamsTest {
     }
 
     @Test
+    fun `test readParams with no-deletion flag`() {
+        val args1 = arrayOf("-sr", "src", "-dr", "dst", "-nd")
+        assertThat(args1.readParams().noDeletion).isTrue()
+
+        val args2 = arrayOf("-sr", "src", "-dr", "dst", "--no-deletion")
+        assertThat(args2.readParams().noDeletion).isTrue()
+
+        val args3 = arrayOf("-sr", "src", "-dr", "dst")
+        assertThat(args3.readParams().noDeletion).isFalse()
+    }
+
+    @Test
     fun `test normalizePath local`() {
         val sep = File.separator
         assertThat(normalizePath("/root", "path")).isEqualTo("/root${sep}path")

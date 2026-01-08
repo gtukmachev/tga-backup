@@ -52,7 +52,9 @@ abstract class FileOps(
         return futures.map { it.get() }
     }
 
-    fun deleteFiles(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean): List<Result<Unit>> {
+    fun deleteFiles(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, noDeletion: Boolean = false): List<Result<Unit>> {
+        if (noDeletion) return emptyList()
+
         val results = mutableListOf<Result<Unit>>()
         val sortedFilesList = filesList.sortedDescending()
         for (fileInfo in sortedFilesList) {

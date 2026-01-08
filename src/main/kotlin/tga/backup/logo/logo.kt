@@ -22,6 +22,7 @@ fun printLogo() {
             |      -dr, --destination-root - destination root folder
             |      -p,  --path             - relative path to sync (default: *)
             |      -t,  --threads          - number of parallel threads (default: 10)
+            |      -nd, --no-deletion      - skip deletion phase (will be planned but not executed)
             |      --dry-run               - to do not perform real file operations
             |      --verbose               - prints content (names) of the source and destination folders
             |      -yu <yandex-user>       - yandex user name
