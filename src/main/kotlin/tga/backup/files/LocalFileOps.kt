@@ -98,7 +98,7 @@ class LocalFileOps : FileOps("/") {
         updateStatus("Listing: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
-            if (it.name == ".md5" || it.name.startsWith("._") || it.name == "Thumbs.db" || it.name == "ZbThumbnail.info" || it.name == "desktop.ini" || it.name == ".tmp.driveupload") {
+            if (it.name == ".md5" || it.name.startsWith("._") || it.name == "Thumbs.db" || it.name == "ZbThumbnail.info" || it.name == "desktop.ini" || it.name == ".tmp.driveupload" || it.name.startsWith(".~lock")) {
                 return@forEach
             }
 
@@ -113,7 +113,7 @@ class LocalFileOps : FileOps("/") {
             )
         }
         content.forEach {
-            if (it.isDirectory && it.name != ".md5" && !it.name.startsWith("._") && it.name != "Thumbs.db" && it.name != "ZbThumbnail.info"  && it.name != "desktop.ini" && it.name != ".tmp.driveupload") {
+            if (it.isDirectory && it.name != ".md5" && !it.name.startsWith("._") && it.name != "Thumbs.db" && it.name != "ZbThumbnail.info"  && it.name != "desktop.ini" && it.name != ".tmp.driveupload" && !it.name.startsWith(".~lock")) {
                 it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus, updateGlobalStatus)
             }
         }
