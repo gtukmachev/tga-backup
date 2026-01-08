@@ -74,8 +74,13 @@ class LocalFileOps : FileOps("/") {
     }
 
     override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit, syncStatus: SyncStatus) {
+        val fFrom = File(from)
         when (srcFileOps) {
-            is LocalFileOps -> File(from).copyTo(File(to), overwrite = true)
+            is LocalFileOps -> {
+                fFrom.copyTo(File(to), overwrite = true)
+                syncStatus.updateProgress(fFrom.length())
+                syncStatus.formatProgress()
+            }
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }

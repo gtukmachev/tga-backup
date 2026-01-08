@@ -65,10 +65,12 @@ class ConsoleMultiThreadWorkers<T>(
         System.out.flush()
     }
 
-    @Synchronized
-    private fun outputGlobalStatus(status: String) {
-        print("\u001b[1A\r\u001b[K$status\u001b[1B")
-        System.out.flush()
+    fun outputGlobalStatus(status: String) {
+        synchronized(this) {
+            val linesToMoveUp = 1
+            print("\u001b[1A\r\u001b[K$status\u001b[1B")
+            System.out.flush()
+        }
     }
 
     fun waitForCompletion() {

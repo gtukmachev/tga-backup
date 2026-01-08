@@ -36,22 +36,15 @@ abstract class FileOps(
         val futures = mutableListOf<java.util.concurrent.Future<Result<Unit>>>()
         val totalSize = sortedFilesList.sumOf { it.size }
         val totalLoadedSize = AtomicLong(0L)
-        var syncStatus: SyncStatus? = null
+        val syncStatus = SyncStatus(totalSize, totalLoadedSize, workers::outputGlobalStatus)
 
         for (fileInfo in sortedFilesList) {
             val srcPath = "${srcFolder}${filesSeparator}${fileInfo.name}"
             val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
             val action = if (override) "overriding" else "copying   "
 
-            futures.add(workers.submit { updateStatus, updateGlobalStatus ->
-                if (syncStatus == null) {
-                    synchronized(this) {
-                        if (syncStatus == null) {
-                            syncStatus = SyncStatus(totalSize, totalLoadedSize, updateGlobalStatus)
-                        }
-                    }
-                }
-                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, override, updateStatus, syncStatus!!)
+            futures.add(workers.submit { updateStatus, _ ->
+                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, override, updateStatus, syncStatus)
             })
         }
         workers.waitForCompletion()
@@ -99,6 +92,7 @@ class SpeedCalculator(val windowMillis: Long = 10000, private val clock: () -> L
     private val stats = ConcurrentLinkedDeque<Pair<Long, Long>>()
     private val startTime = clock()
 
+    @Synchronized
     fun addProgress(loaded: Long) {
         val now = clock()
         stats.add(now to loaded)
@@ -108,6 +102,7 @@ class SpeedCalculator(val windowMillis: Long = 10000, private val clock: () -> L
         }
     }
 
+    @Synchronized
     fun getSpeed(): Long { // bytes per second
         if (stats.size < 2) return 0
         val first = stats.peekFirst()!!
@@ -118,6 +113,7 @@ class SpeedCalculator(val windowMillis: Long = 10000, private val clock: () -> L
         return (bytes * 1000) / durationMs
     }
 
+    @Synchronized
     fun predict(totalSize: Long): String? {
         val now = clock()
         if (now - startTime < 3000) return null
@@ -146,6 +142,7 @@ class SyncStatus(
 ) {
     private val speedCalculator = SpeedCalculator()
 
+    @Synchronized
     fun updateProgress(loadedDelta: Long) {
         val currentTotal = totalLoadedSize.addAndGet(loadedDelta)
         speedCalculator.addProgress(currentTotal)
@@ -153,6 +150,7 @@ class SyncStatus(
 
     fun getGlobalSpeed(): Long = speedCalculator.getSpeed()
 
+    @Synchronized
     fun formatProgress() {
         val loadedGlobal = totalLoadedSize.get()
         val globalPrcNum = if (totalSize > 0) (loadedGlobal.toDouble() / totalSize.toDouble()) * 100 else 0.0
