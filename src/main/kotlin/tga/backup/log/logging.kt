@@ -59,14 +59,18 @@ fun formatNumbersAndAlignRight(minLength: Int, vararg nums: Number) = alignRight
 
 fun formatTime(millis: Long): String {
     val totalSeconds = millis / 1000
-    val hours = totalSeconds / 3600
+    val days = totalSeconds / 86400
+    val hours = (totalSeconds % 86400) / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
 
+    fun format(num: Long, unit: String) = "${num.toString().padStart(2)}$unit"
+
     return when {
-        hours > 0 -> "${hours}h ${minutes}m ${seconds}s"
-        minutes > 0 -> "${minutes}m ${seconds}s"
-        else -> "${seconds}s"
+        days > 0 -> "${format(days, "d")} ${format(hours, "h")} ${format(minutes, "m")} ${format(seconds, "s")}"
+        hours > 0 -> "${format(hours, "h")} ${format(minutes, "m")} ${format(seconds, "s")}"
+        minutes > 0 -> "${format(minutes, "m")} ${format(seconds, "s")}"
+        else -> format(seconds, "s")
     }
 }
 
