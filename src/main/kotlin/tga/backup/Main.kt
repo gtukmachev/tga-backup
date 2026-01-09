@@ -52,7 +52,9 @@ fun main(args: Array<String>) {
 
     logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toAddFiles)
     logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
-    logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
+    if (!params.noDeletion) {
+        logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
+    }
 
     if (params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
         val yellow = "\u001b[33m"
