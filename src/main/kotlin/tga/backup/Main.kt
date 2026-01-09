@@ -51,14 +51,21 @@ fun main(args: Array<String>) {
     }
 
     logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toAddFiles)
-    logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
+    if (!params.noOverriding) {
+        logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
+    }
     if (!params.noDeletion) {
         logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
     }
 
+    val yellow = "\u001b[33m"
+    val reset = "\u001b[0m"
+
+    if (params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
+        println("${yellow}WARNING: The 'no-overriding' parameter is specified. The overriding phase will be skipped.${reset}")
+    }
+
     if (params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
-        val yellow = "\u001b[33m"
-        val reset = "\u001b[0m"
         println("${yellow}WARNING: The 'no-deletion' parameter is specified. The deletion phase will be skipped.${reset}")
     }
 
@@ -75,8 +82,12 @@ fun main(args: Array<String>) {
     val results = mutableListOf<Result<Unit>>()
     try {
         results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
-        results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
-        results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+        if (!params.noOverriding) {
+            results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+        }
+        if (!params.noDeletion) {
+            results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+        }
     } finally {
         srcFileOps.close()
         dstFileOps.close()

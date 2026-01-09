@@ -13,6 +13,7 @@ data class Params(
     val verbose: Boolean,
     val devMode: Boolean,
     val noDeletion: Boolean,
+    val noOverriding: Boolean,
     val parallelThreads: Int = 10,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
@@ -31,6 +32,7 @@ data class Params(
                     |   verbose=$verbose,
                     |   devMode=$devMode,
                     |   noDeletion=$noDeletion,
+                    |   noOverriding=$noOverriding,
                     |   parallelThreads=$parallelThreads,
                     |   yandexUser='$yandexUser',
                     |   yandexToken='${yandexToken?.let { "***" } ?: ""}'
@@ -55,12 +57,13 @@ private val argToConfigMap = mapOf(
     "--verbose" to "verbose",
     "-dev" to "devMode",
     "-nd" to "noDeletion", "--no-deletion" to "noDeletion",
+    "-no" to "noOverriding", "--no-overriding" to "noOverriding",
     "-t" to "parallelThreads", "--threads" to "parallelThreads",
     "-yu" to "yandexUser",
     "-yt" to "yandexToken"
 )
 
-private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion")
+private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion", "-no", "--no-overriding")
 
 fun Array<String>.readParams(): Params {
     val (profile, argsList) = if (isNotEmpty() && !get(0).startsWith("-")) {
@@ -118,6 +121,7 @@ fun Array<String>.readParams(): Params {
         verbose = mergedConfig.getBoolean("verbose"),
         devMode = mergedConfig.getBoolean("devMode"),
         noDeletion = mergedConfig.getBoolean("noDeletion"),
+        noOverriding = mergedConfig.getBoolean("noOverriding"),
         parallelThreads = mergedConfig.getInt("parallelThreads"),
         yandexUser = if (mergedConfig.hasPath("yandexUser")) mergedConfig.getString("yandexUser").let { if (it.isBlank()) null else it } else null,
         yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null

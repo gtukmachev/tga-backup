@@ -51,6 +51,18 @@ class ParamsTest {
     }
 
     @Test
+    fun `test readParams with no-overriding flag`() {
+        val args1 = arrayOf("-sr", "src", "-dr", "dst", "-no")
+        assertThat(args1.readParams().noOverriding).isTrue()
+
+        val args2 = arrayOf("-sr", "src", "-dr", "dst", "--no-overriding")
+        assertThat(args2.readParams().noOverriding).isTrue()
+
+        val args3 = arrayOf("-sr", "src", "-dr", "dst")
+        assertThat(args3.readParams().noOverriding).isFalse()
+    }
+
+    @Test
     fun `test normalizePath local`() {
         val sep = File.separator
         assertThat(normalizePath("/root", "path")).isEqualTo("/root${sep}path")
