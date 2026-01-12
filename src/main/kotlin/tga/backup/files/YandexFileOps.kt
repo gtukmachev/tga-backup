@@ -14,8 +14,9 @@ import java.util.concurrent.atomic.AtomicReference
 
 class YandexFileOps(
     private val yandex: YandexResumableUploader,
-    val maxPageSize: Int  = 5000
-) : FileOps(filesSeparator = "/") {
+    val maxPageSize: Int  = 5000,
+    excludePatterns: List<String> = emptyList()
+) : FileOps(filesSeparator = "/", excludePatterns) {
 
     private val logger = KotlinLogging.logger {  }
 
@@ -80,7 +81,7 @@ class YandexFileOps(
 
                         items.forEach { item ->
                             val name = item.get("name").asString
-                            if (name == ".md5" || name.startsWith("._") || name == "Thumbs.db" || name == "ZbThumbnail.info" || name == "desktop.ini" || name == ".tmp.driveupload" || name.startsWith(".~lock")) {
+                            if (isExcluded(name)) {
                                 return@forEach
                             }
 

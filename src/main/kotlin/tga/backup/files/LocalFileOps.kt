@@ -7,7 +7,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
 
-class LocalFileOps : FileOps("/") {
+class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", excludePatterns) {
 
 
     override fun
@@ -100,7 +100,7 @@ class LocalFileOps : FileOps("/") {
         updateStatus("Listing: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
-            if (it.name == ".md5" || it.name.startsWith("._") || it.name == "Thumbs.db" || it.name == "ZbThumbnail.info" || it.name == "desktop.ini" || it.name == ".tmp.driveupload" || it.name.startsWith(".~lock")) {
+            if (isExcluded(it.name)) {
                 return@forEach
             }
 
@@ -115,7 +115,7 @@ class LocalFileOps : FileOps("/") {
             )
         }
         content.forEach {
-            if (it.isDirectory && it.name != ".md5" && !it.name.startsWith("._") && it.name != "Thumbs.db" && it.name != "ZbThumbnail.info"  && it.name != "desktop.ini" && it.name != ".tmp.driveupload" && !it.name.startsWith(".~lock")) {
+            if (it.isDirectory && !isExcluded(it.name)) {
                 it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus, updateGlobalStatus)
             }
         }

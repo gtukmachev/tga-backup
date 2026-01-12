@@ -203,4 +203,32 @@ class FilesComparatorTest {
             FileInfo("old-file.txt", false, 100L).apply { setupMd5("md5-1") } to "new-folder/new-file.txt"
         )
     }
+
+    @Test
+    fun `test folder move detection with excluded files`() {
+        // Folder should be detected as moved even if it contains excluded files (like .md5)
+        val srcFiles = setOf(
+            FileInfo("new-folder", true, 10L),
+            FileInfo("new-folder/file1.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("new-folder/file2.txt", false, 200L).apply { setupMd5("md5-2") },
+            FileInfo("new-folder/.md5", false, 50L).apply { setupMd5("md5-cache") }
+        )
+        val dstFiles = setOf(
+            FileInfo("old-folder", true, 10L),
+            FileInfo("old-folder/file1.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("old-folder/file2.txt", false, 200L).apply { setupMd5("md5-2") },
+            FileInfo("old-folder/.md5", false, 50L).apply { setupMd5("md5-cache-old") }
+        )
+
+        val excludePatterns = listOf("^\\.md5$")
+        val result = compareSrcAndDst(srcFiles, dstFiles, excludePatterns)
+
+        // Folder should be detected as moved, ignoring the .md5 file
+        assertThat(result.toRenameFolders).containsExactly(
+            FileInfo("old-folder", true, 10L) to "new-folder"
+        )
+        // The .md5 files should be handled separately (added/deleted)
+        assertThat(result.toAddFiles).contains(FileInfo("new-folder/.md5", false, 50L).apply { setupMd5("md5-cache") })
+        assertThat(result.toDeleteFiles).contains(FileInfo("old-folder/.md5", false, 50L).apply { setupMd5("md5-cache-old") })
+    }
 }

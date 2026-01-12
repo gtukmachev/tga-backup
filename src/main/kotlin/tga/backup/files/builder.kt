@@ -6,8 +6,8 @@ import tga.backup.yandex.YandexResumableUploader
 
 fun buildFileOpsByURL(url: String, params: Params): FileOps {
     return when {
-        url.startsWith("yandex") -> YandexFileOps(buildYandexClient(params))
-        else -> LocalFileOps()
+        url.startsWith("yandex") -> YandexFileOps(buildYandexClient(params), excludePatterns = params.exclude)
+        else -> LocalFileOps(excludePatterns = params.exclude)
     }
 }
 

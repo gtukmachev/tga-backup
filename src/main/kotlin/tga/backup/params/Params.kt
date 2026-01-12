@@ -17,6 +17,7 @@ data class Params(
     val parallelThreads: Int = 10,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
+    val exclude: List<String> = emptyList(),
 ) {
 
     val srcFolder: String get() = normalizePath(srcRoot, path)
@@ -35,7 +36,8 @@ data class Params(
                     |   noOverriding=$noOverriding,
                     |   parallelThreads=$parallelThreads,
                     |   yandexUser='$yandexUser',
-                    |   yandexToken='${yandexToken?.let { "***" } ?: ""}'
+                    |   yandexToken='${yandexToken?.let { "***" } ?: ""}',
+                    |   exclude=$exclude
                     |)
                 """.trimMargin()
     }
@@ -60,7 +62,8 @@ private val argToConfigMap = mapOf(
     "-no" to "noOverriding", "--no-overriding" to "noOverriding",
     "-t" to "parallelThreads", "--threads" to "parallelThreads",
     "-yu" to "yandexUser",
-    "-yt" to "yandexToken"
+    "-yt" to "yandexToken",
+    "-x" to "exclude", "--exclude" to "exclude"
 )
 
 private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion", "-no", "--no-overriding")
@@ -73,6 +76,7 @@ fun Array<String>.readParams(): Params {
     }
 
     val cliMap = mutableMapOf<String, Any>()
+    val excludeList = mutableListOf<String>()
     var i = 0
     while (i < argsList.size) {
         val arg = argsList[i]
@@ -82,14 +86,18 @@ fun Array<String>.readParams(): Params {
                 cliMap[configKey] = true
             } else if (i + 1 < argsList.size) {
                 val value = argsList[i + 1]
-                cliMap[configKey] = when (configKey) {
-                    "parallelThreads" -> value.toInt()
-                    else -> value
+                when (configKey) {
+                    "exclude" -> excludeList.add(value)
+                    "parallelThreads" -> cliMap[configKey] = value.toInt()
+                    else -> cliMap[configKey] = value
                 }
                 i++
             }
         }
         i++
+    }
+    if (excludeList.isNotEmpty()) {
+        cliMap["exclude"] = excludeList
     }
 
     val updateProfile = argsList.contains("-up") || argsList.contains("--update-profile")
@@ -120,7 +128,8 @@ fun Array<String>.readParams(): Params {
         noOverriding = mergedConfig.getBoolean("noOverriding"),
         parallelThreads = mergedConfig.getInt("parallelThreads"),
         yandexUser = if (mergedConfig.hasPath("yandexUser")) mergedConfig.getString("yandexUser").let { if (it.isBlank()) null else it } else null,
-        yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null
+        yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null,
+        exclude = if (mergedConfig.hasPath("exclude")) mergedConfig.getStringList("exclude") else emptyList()
     )
 
     if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")

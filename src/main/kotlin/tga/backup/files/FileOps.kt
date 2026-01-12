@@ -8,8 +8,16 @@ import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicLong
 
 abstract class FileOps(
-    val filesSeparator: String
+    val filesSeparator: String,
+    val excludePatterns: List<String> = emptyList()
 ) {
+    private val excludeRegexes: List<Regex> by lazy {
+        excludePatterns.map { Regex(it) }
+    }
+
+    protected fun isExcluded(fileName: String): Boolean {
+        return excludeRegexes.any { it.matches(fileName) }
+    }
     // Interface part
     abstract fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> // platform specific
 

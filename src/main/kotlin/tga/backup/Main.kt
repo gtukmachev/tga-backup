@@ -40,7 +40,7 @@ fun main(args: Array<String>) {
     val dstFiles = dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false) - rootDstFolder
     if (params.verbose) logFilesList("Destination", dstFiles)
 
-    val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles)
+    val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles, excludePatterns = params.exclude)
 
     val excludedFiles = srcFiles.filter { it.readException != null }
 

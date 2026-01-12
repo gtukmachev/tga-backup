@@ -10,7 +10,12 @@ data class SyncActionCases(
     val toRenameFolders: Set<Pair<FileInfo, String>> = emptySet(),
 )
 
-fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>): SyncActionCases {
+fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePatterns: List<String> = emptyList()): SyncActionCases {
+    val excludeRegexes = excludePatterns.map { Regex(it) }
+    fun isExcluded(fileName: String): Boolean {
+        val baseName = fileName.substringAfterLast('/')
+        return excludeRegexes.any { it.matches(baseName) }
+    }
     val srcFilesFiltered = srcFiles.filter { it.readException == null }
 
     val srcFileNames = srcFilesFiltered.map { it.name }.toSet()
@@ -88,7 +93,8 @@ fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>): SyncActi
         
         // This is tricky. Let's simplify:
         // A folder is a candidate if its immediate children files are all moved to the same new location.
-        val filesInDelFolder = dstFiles.filter { it.name.startsWith(delFolderPath) && !it.isDirectory && it.name.substring(delFolderPath.length).indexOfAny(charArrayOf('/','\\')) == -1 }
+        // Ignore excluded files when checking
+        val filesInDelFolder = dstFiles.filter { it.name.startsWith(delFolderPath) && !it.isDirectory && it.name.substring(delFolderPath.length).indexOfAny(charArrayOf('/','\\')) == -1 && !isExcluded(it.name) }
         if (filesInDelFolder.isEmpty()) continue
 
         val firstFile = filesInDelFolder.first()
@@ -102,7 +108,8 @@ fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>): SyncActi
         val addFolder = toAddFolders.find { it.name == newFolderName }
         if (addFolder != null) {
             // Check if ALL files (recursive) in delFolder are moved to addFolder
-            val allFilesInDelFolder = dstFiles.filter { it.name.startsWith(delFolderPath) && !it.isDirectory }
+            // Ignore excluded files when checking
+            val allFilesInDelFolder = dstFiles.filter { it.name.startsWith(delFolderPath) && !it.isDirectory && !isExcluded(it.name) }
             val allMovedToCorrectPlace = allFilesInDelFolder.all { 
                 val relativePath = it.name.substring(delFolderPath.length)
                 fileMovesAndRenames[it] == addFolder.name + "/" + relativePath
