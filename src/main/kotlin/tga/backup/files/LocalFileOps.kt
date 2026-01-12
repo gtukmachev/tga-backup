@@ -23,8 +23,6 @@ class LocalFileOps : FileOps("/") {
             }
             val localFiles = rootFile.listFilesRecursive(HashSet(), "", updateStatus, updateGlobalStatus)
             val totalSize: Long = localFiles.sumOf { it.size }
-            val totalSizeStr = formatFileSize(totalSize)
-            var scannedSize: Long = 0L
             val numberOfFiles = localFiles.sumOf { if (it.isDirectory) 0L else 1L }
             updateGlobalStatus("Listed files: ${formatNumber(numberOfFiles)} [total size: ${formatFileSize(totalSize)}]")
 
@@ -75,7 +73,7 @@ class LocalFileOps : FileOps("/") {
         File(dirPath).mkdirs()
     }
 
-    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, override: Boolean, updateStatus: (String) -> Unit, syncStatus: SyncStatus) {
+    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, updateStatus: (String) -> Unit, syncStatus: SyncStatus) {
         val fFrom = File(from)
         when (srcFileOps) {
             is LocalFileOps -> {

@@ -26,6 +26,7 @@ class ConsoleMultiThreadWorkers<T>(
 
     fun submit(task: TaskWithStatus<T>): Future<Result<T>> {
         return executor.submit(Callable {
+            @Suppress("DEPRECATION")
             val threadId = Thread.currentThread().id
             val lineIndex = workerLineMap.getOrPut(threadId) { nextLineIndex.getAndIncrement() % threadCount }
 
@@ -67,7 +68,6 @@ class ConsoleMultiThreadWorkers<T>(
 
     fun outputGlobalStatus(status: String) {
         synchronized(this) {
-            val linesToMoveUp = 1
             print("\u001b[1A\r\u001b[K$status\u001b[1B")
             System.out.flush()
         }

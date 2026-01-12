@@ -152,12 +152,11 @@ class YandexFileOps(
         from: String,
         to: String,
         srcFileOps: FileOps,
-        override: Boolean,
         updateStatus: (String) -> Unit,
         syncStatus: SyncStatus,
     ) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(action, from, to, override, updateStatus, syncStatus)
+            is LocalFileOps -> uploadToYandex(action, from, to, updateStatus, syncStatus)
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -196,7 +195,6 @@ class YandexFileOps(
         action: String,
         from: String,
         to: String,
-        override: Boolean,
         updateStatus: (String) -> Unit,
         syncStatus: SyncStatus,
     ) {

@@ -96,13 +96,9 @@ fun Array<String>.readParams(): Params {
 
     val cliConfig = ConfigFactory.parseMap(cliMap)
 
-    val profileConfig = if (profile != null) {
-        val profileFile = File(System.getProperty("user.home"), ".tga-backup/$profile.conf")
-        if (profileFile.exists()) {
-            ConfigFactory.parseFile(profileFile)
-        } else {
-            ConfigFactory.empty()
-        }
+    val profileFile = File(System.getProperty("user.home"), ".tga-backup/$profile.conf")
+    val profileConfig = if (profileFile.exists()) {
+        ConfigFactory.parseFile(profileFile)
     } else {
         ConfigFactory.empty()
     }
@@ -130,7 +126,7 @@ fun Array<String>.readParams(): Params {
     if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")
     if (params.dstRoot.isBlank()) throw ArgumentIsMissed("-dr (--destination-root)")
 
-    if (updateProfile && profile != null) {
+    if (updateProfile) {
         updateProfileFile(profile, cliMap, profileConfig, defaultConfig)
     }
 

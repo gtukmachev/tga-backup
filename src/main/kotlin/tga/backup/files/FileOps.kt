@@ -44,7 +44,7 @@ abstract class FileOps(
             val action = if (override) "overriding" else "copying   "
 
             futures.add(workers.submit { updateStatus, _ ->
-                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, override, updateStatus, syncStatus)
+                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, updateStatus, syncStatus)
             })
         }
         workers.waitForCompletion()
@@ -80,7 +80,6 @@ abstract class FileOps(
         from: String,
         to: String,
         srcFileOps: FileOps,
-        override: Boolean,
         updateStatus: (String) -> Unit,
         syncStatus: SyncStatus,
     )
