@@ -100,13 +100,14 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         updateStatus("Listing: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
-            if (isExcluded(it.name)) {
+            val fullPath = path + it.name
+            if (isExcluded(it.name, fullPath)) {
                 return@forEach
             }
 
             outSet.add(
                 FileInfo(
-                    name = path + it.name,
+                    name = fullPath,
                     isDirectory = it.isDirectory,
                     size = if (it.isDirectory) 10L else it.length(),
                     creationTime = it.getCreationTime(),
@@ -115,8 +116,9 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
             )
         }
         content.forEach {
-            if (it.isDirectory && !isExcluded(it.name)) {
-                it.listFilesRecursive(outSet, path + it.name + filesSeparator, updateStatus, updateGlobalStatus)
+            val fullPath = path + it.name
+            if (it.isDirectory && !isExcluded(it.name, fullPath)) {
+                it.listFilesRecursive(outSet, fullPath + filesSeparator, updateStatus, updateGlobalStatus)
             }
         }
         updateGlobalStatus("Listed files: ${formatNumber(outSet.size)}]")

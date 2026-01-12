@@ -156,4 +156,112 @@ class ExclusionMatcherTest {
         assertThat(matcher.isExcluded("thumbs.db")).isFalse() // case sensitive
         assertThat(matcher.isExcluded("myfile.txt")).isFalse()
     }
+
+    @Test
+    fun `test substring patterns`() {
+        val matcher = ExclusionMatcher(listOf("*cache*", "*temp*", "*backup*"))
+        
+        // Should match
+        assertThat(matcher.isExcluded("mycache")).isTrue()
+        assertThat(matcher.isExcluded("cache.txt")).isTrue()
+        assertThat(matcher.isExcluded("file_cache_data")).isTrue()
+        assertThat(matcher.isExcluded("temporary")).isTrue()
+        assertThat(matcher.isExcluded("temp")).isTrue()
+        assertThat(matcher.isExcluded("backup_file")).isTrue()
+        assertThat(matcher.isExcluded("file.backup.txt")).isTrue()
+        
+        // Should not match
+        assertThat(matcher.isExcluded("file.txt")).isFalse()
+        assertThat(matcher.isExcluded("data.log")).isFalse()
+    }
+
+    @Test
+    fun `test folder path exclusions - full match`() {
+        val matcher = ExclusionMatcher(listOf("node_modules/package.json", ".git/config"))
+        
+        // Should match when full path is provided
+        assertThat(matcher.isExcluded("package.json", "node_modules/package.json")).isTrue()
+        assertThat(matcher.isExcluded("config", ".git/config")).isTrue()
+        
+        // Should not match file name only
+        assertThat(matcher.isExcluded("package.json")).isFalse()
+        assertThat(matcher.isExcluded("config")).isFalse()
+        
+        // Should not match different paths
+        assertThat(matcher.isExcluded("package.json", "src/package.json")).isFalse()
+    }
+
+    @Test
+    fun `test folder path exclusions - prefix`() {
+        val matcher = ExclusionMatcher(listOf("node_modules/*", ".git/*", "build/temp/*"))
+        
+        // Should match when full path is provided
+        assertThat(matcher.isExcluded("file.txt", "node_modules/file.txt")).isTrue()
+        assertThat(matcher.isExcluded("index", ".git/index")).isTrue()
+        assertThat(matcher.isExcluded("data.tmp", "build/temp/data.tmp")).isTrue()
+        
+        // Should not match file name only
+        assertThat(matcher.isExcluded("file.txt")).isFalse()
+        
+        // Should not match different paths
+        assertThat(matcher.isExcluded("file.txt", "src/file.txt")).isFalse()
+    }
+
+    @Test
+    fun `test folder path exclusions - suffix`() {
+        val matcher = ExclusionMatcher(listOf("*/cache", "*/temp"))
+        
+        // Should match when full path ends with pattern
+        assertThat(matcher.isExcluded("cache", "build/cache")).isTrue()
+        assertThat(matcher.isExcluded("temp", "data/temp")).isTrue()
+        assertThat(matcher.isExcluded("cache", "node_modules/lib/cache")).isTrue()
+        
+        // Should not match file name only
+        assertThat(matcher.isExcluded("cache")).isFalse()
+        
+        // Should not match different paths
+        assertThat(matcher.isExcluded("cache", "cache/file.txt")).isFalse()
+    }
+
+    @Test
+    fun `test folder path exclusions - substring`() {
+        val matcher = ExclusionMatcher(listOf("*node_modules/*", "*/.git/*"))
+        
+        // Should match when full path contains pattern
+        assertThat(matcher.isExcluded("file.txt", "project/node_modules/file.txt")).isTrue()
+        assertThat(matcher.isExcluded("file.txt", "node_modules/lib/file.txt")).isTrue()
+        assertThat(matcher.isExcluded("index", "project/.git/index")).isTrue()
+        
+        // Should not match file name only
+        assertThat(matcher.isExcluded("file.txt")).isFalse()
+        
+        // Should not match different paths
+        assertThat(matcher.isExcluded("file.txt", "src/file.txt")).isFalse()
+    }
+
+    @Test
+    fun `test mixed file and folder patterns`() {
+        val matcher = ExclusionMatcher(listOf(
+            ".md5",              // file full match
+            "*.tmp",             // file suffix
+            "*cache*",           // file substring
+            "node_modules/*",    // folder prefix
+            "*/build",           // folder suffix
+            "*/.git/*"           // folder substring
+        ))
+        
+        // File patterns
+        assertThat(matcher.isExcluded(".md5")).isTrue()
+        assertThat(matcher.isExcluded("file.tmp")).isTrue()
+        assertThat(matcher.isExcluded("mycache.txt")).isTrue()
+        
+        // Folder patterns
+        assertThat(matcher.isExcluded("package.json", "node_modules/package.json")).isTrue()
+        assertThat(matcher.isExcluded("build", "project/build")).isTrue()
+        assertThat(matcher.isExcluded("config", "project/.git/config")).isTrue()
+        
+        // Should not match
+        assertThat(matcher.isExcluded("file.txt")).isFalse()
+        assertThat(matcher.isExcluded("file.txt", "src/file.txt")).isFalse()
+    }
 }

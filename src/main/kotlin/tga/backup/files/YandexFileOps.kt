@@ -81,14 +81,16 @@ class YandexFileOps(
 
                         items.forEach { item ->
                             val name = item.get("name").asString
-                            if (isExcluded(name)) {
+                            val itemPath = item.get("path").asString.removePrefix("disk:")
+                            val fullPath = itemPath.removePrefix(fullRootPathPrefix).removePrefix("/")
+                            
+                            if (isExcluded(name, fullPath)) {
                                 return@forEach
                             }
 
                             val type = item.get("type").asString
-                            val itemPath = item.get("path").asString
                             if (type == "dir") {
-                                scan(itemPath.removePrefix("disk:"))
+                                scan(itemPath)
                             } else {
                                 files.add(item.toFileInfo(fullRootPathPrefix))
                                 printFilesSize()

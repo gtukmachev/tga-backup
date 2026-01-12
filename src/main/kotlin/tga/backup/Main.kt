@@ -15,11 +15,22 @@ import java.io.File
 
 private val logger = KotlinLogging.logger {  }
 
+private fun logPhase(phaseName: String) {
+    val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+    logger.warn { "[$timestamp] Phase: $phaseName" }
+}
+
+private fun logPhaseDuration(phaseName: String, durationMs: Long) {
+    val durationSec = durationMs / 1000.0
+    logger.warn { "Phase '$phaseName' completed in %.2f seconds".format(durationSec) }
+}
+
 fun main(args: Array<String>) {
     System.setProperty("java.rmi.server.hostname", "localhost")
 
     printLogo()
 
+    logPhase("Parameter Parsing & Validation")
     val params = try {
         args.readParams()
     } catch (e: ArgumentIsMissed) {
@@ -32,15 +43,24 @@ fun main(args: Array<String>) {
     val srcFileOps = buildFileOpsByURL(params.srcFolder, params)
     val dstFileOps = buildFileOpsByURL(params.dstFolder, params)
 
+    logPhase("Source Scanning")
+    val srcScanStart = System.currentTimeMillis()
     println("\nListing source files:")
     val srcFiles =  srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
     if (params.verbose) logFilesList("Source", srcFiles)
+    logPhaseDuration("Source Scanning", System.currentTimeMillis() - srcScanStart)
 
+    logPhase("Destination Scanning")
+    val dstScanStart = System.currentTimeMillis()
     val rootDstFolder =  FileInfo("", true, 10L)
     val dstFiles = dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false) - rootDstFolder
     if (params.verbose) logFilesList("Destination", dstFiles)
+    logPhaseDuration("Destination Scanning", System.currentTimeMillis() - dstScanStart)
 
+    logPhase("Comparison & Plan Building")
+    val comparisonStart = System.currentTimeMillis()
     val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles, excludePatterns = params.exclude)
+    logPhaseDuration("Comparison & Plan Building", System.currentTimeMillis() - comparisonStart)
 
     val excludedFiles = srcFiles.filter { it.readException != null }
 
@@ -92,23 +112,42 @@ fun main(args: Array<String>) {
         return
     }
 
+    logPhase("Execution Phase")
+    val executionStart = System.currentTimeMillis()
     val results = mutableListOf<Result<Unit>>()
     try {
         if (continueAnswer in setOf("m", "M")) {
+            logPhase("Moving/Renaming")
+            val moveStart = System.currentTimeMillis()
             results += runMoving(dstFileOps, params, actions)
+            logPhaseDuration("Moving/Renaming", System.currentTimeMillis() - moveStart)
         } else {
-            results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
-            if (!params.noOverriding) {
-                results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+            if (actions.toAddFiles.isNotEmpty()) {
+                logPhase("Copying Files")
+                val copyStart = System.currentTimeMillis()
+                results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
+                logPhaseDuration("Copying Files", System.currentTimeMillis() - copyStart)
             }
-            if (!params.noDeletion) {
+            
+            if (!params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
+                logPhase("Overriding Files")
+                val overrideStart = System.currentTimeMillis()
+                results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+                logPhaseDuration("Overriding Files", System.currentTimeMillis() - overrideStart)
+            }
+            
+            if (!params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
+                logPhase("Deleting Files")
+                val deleteStart = System.currentTimeMillis()
                 results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+                logPhaseDuration("Deleting Files", System.currentTimeMillis() - deleteStart)
             }
         }
     } finally {
         srcFileOps.close()
         dstFileOps.close()
     }
+    logPhaseDuration("Execution Phase", System.currentTimeMillis() - executionStart)
 
     if (excludedFiles.isNotEmpty()) {
         println("\nEXCLUDED FILES (due to read errors):")
@@ -121,7 +160,9 @@ fun main(args: Array<String>) {
         }
     }
 
+    logPhase("Final Summary")
     printFinalSummary(results)
+    logPhase("Synchronization Complete")
 }
 
 fun printFinalSummary(results: List<Result<Unit>>) {

@@ -12,9 +12,9 @@ data class SyncActionCases(
 
 fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePatterns: List<String> = emptyList()): SyncActionCases {
     val exclusionMatcher = ExclusionMatcher(excludePatterns)
-    fun isExcluded(fileName: String): Boolean {
-        val baseName = fileName.substringAfterLast('/')
-        return exclusionMatcher.isExcluded(baseName)
+    fun isExcluded(fullPath: String): Boolean {
+        val baseName = fullPath.substringAfterLast('/')
+        return exclusionMatcher.isExcluded(baseName, fullPath)
     }
     val srcFilesFiltered = srcFiles.filter { it.readException == null }
 

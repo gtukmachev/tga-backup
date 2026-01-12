@@ -15,8 +15,8 @@ abstract class FileOps(
         ExclusionMatcher(excludePatterns)
     }
 
-    protected fun isExcluded(fileName: String): Boolean {
-        return exclusionMatcher.isExcluded(fileName)
+    protected fun isExcluded(fileName: String, fullPath: String? = null): Boolean {
+        return exclusionMatcher.isExcluded(fileName, fullPath)
     }
     // Interface part
     abstract fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> // platform specific
