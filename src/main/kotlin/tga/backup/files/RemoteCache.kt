@@ -21,22 +21,28 @@ fun writeRemoteCache(cacheFilePath: String, files: Set<FileInfo>) {
     val cacheFile = File(cacheFilePath)
     cacheFile.parentFile.mkdirs()
     
-    val newContent = files
+    // Build content as a collection of strings (not a single concatenated string)
+    val newLines = files
         .sortedBy { it.name }
-        .joinToString("\n") { fileInfo ->
+        .map { fileInfo ->
             "${fileInfo.name}\t${fileInfo.isDirectory}\t${fileInfo.size}\t${fileInfo.md5 ?: ""}"
         }
     
     // Optimization: only write if content differs
     if (cacheFile.exists()) {
-        val existingContent = cacheFile.readText()
-        if (existingContent == newContent) {
+        val existingLines = cacheFile.readLines()
+        if (existingLines == newLines) {
             logger.debug { "Cache file unchanged, skipping write: $cacheFilePath" }
             return
         }
     }
     
-    cacheFile.writeText(newContent)
+    cacheFile.bufferedWriter().use { writer ->
+        newLines.forEachIndexed { index, line ->
+            if (index > 0) writer.write("\n")
+            writer.write(line)
+        }
+    }
     logger.info { "Remote cache written: $cacheFilePath (${files.size} files)" }
 }
 
