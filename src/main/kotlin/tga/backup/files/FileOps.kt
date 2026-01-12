@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicLong
 
 abstract class FileOps(
-    protected val filesSeparator: String
+    val filesSeparator: String
 ) {
     // Interface part
     abstract fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> // platform specific
@@ -85,6 +85,8 @@ abstract class FileOps(
         syncStatus: SyncStatus,
     )
     protected abstract fun deleteFileOrFolder(path: String)
+
+    abstract fun moveFileOrFolder(fromPath: String, toPath: String)
 
     abstract fun close()
 

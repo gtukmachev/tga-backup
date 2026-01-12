@@ -91,6 +91,10 @@ class LocalFileOps : FileOps("/") {
         File(path).delete()
     }
 
+    override fun moveFileOrFolder(fromPath: String, toPath: String) {
+        File(fromPath).renameTo(File(toPath))
+    }
+
     override fun close() {
     }
 

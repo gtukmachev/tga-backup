@@ -75,6 +75,25 @@ class YandexResumableUploader(
         }
     }
 
+    fun move(from: String, to: String) {
+        val url = "https://cloud-api.yandex.net/v1/disk/resources/move".toHttpUrl().newBuilder()
+            .addQueryParameter("from", from)
+            .addQueryParameter("path", to)
+            .build()
+
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "OAuth $token")
+            .post(okhttp3.internal.EMPTY_REQUEST)
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw YandexResponseException("Error moving resource", response, dstFilePath = from)
+            }
+        }
+    }
+
     // Main method
     fun uploadFile(localFile: File, remotePath: String, onProgress: ProgressCallback) {
         // 1. Get the link (or use the old one if it's still alive, but better to get a fresh one)

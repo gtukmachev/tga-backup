@@ -137,4 +137,70 @@ class FilesComparatorTest {
         assertThat(result.toDeleteFiles).isEmpty()
         assertThat(result.toOverrideFiles).isEmpty()
     }
+
+    @Test
+    fun `test file rename detection`() {
+        val srcFiles = setOf(FileInfo("new-name.txt", false, 100L).apply { setupMd5("md5-1") })
+        val dstFiles = setOf(FileInfo("old-name.txt", false, 100L).apply { setupMd5("md5-1") })
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        assertThat(result.toAddFiles).isEmpty()
+        assertThat(result.toDeleteFiles).isEmpty()
+        assertThat(result.toRenameFiles).containsExactly(
+            FileInfo("old-name.txt", false, 100L).apply { setupMd5("md5-1") } to "new-name.txt"
+        )
+    }
+
+    @Test
+    fun `test file move detection`() {
+        val srcFiles = setOf(FileInfo("folder/file.txt", false, 100L).apply { setupMd5("md5-1") })
+        val dstFiles = setOf(FileInfo("file.txt", false, 100L).apply { setupMd5("md5-1") })
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        assertThat(result.toAddFiles).isEmpty()
+        assertThat(result.toDeleteFiles).isEmpty()
+        assertThat(result.toMoveFiles).containsExactly(
+            FileInfo("file.txt", false, 100L).apply { setupMd5("md5-1") } to "folder/file.txt"
+        )
+    }
+
+    @Test
+    fun `test folder move detection`() {
+        val srcFiles = setOf(
+            FileInfo("new-folder", true, 10L),
+            FileInfo("new-folder/file1.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("new-folder/file2.txt", false, 200L).apply { setupMd5("md5-2") }
+        )
+        val dstFiles = setOf(
+            FileInfo("old-folder", true, 10L),
+            FileInfo("old-folder/file1.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("old-folder/file2.txt", false, 200L).apply { setupMd5("md5-2") }
+        )
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        assertThat(result.toAddFiles).isEmpty()
+        assertThat(result.toDeleteFiles).isEmpty()
+        assertThat(result.toMoveFiles).isEmpty()
+        assertThat(result.toRenameFiles).isEmpty()
+        assertThat(result.toRenameFolders).containsExactly(
+            FileInfo("old-folder", true, 10L) to "new-folder"
+        )
+    }
+
+    @Test
+    fun `test move and rename combined - should split`() {
+        // Actually, my current implementation detects it as rename if names are different, or move if names are same.
+        // If BOTH folder and name are different, it's a rename.
+        val srcFiles = setOf(FileInfo("new-folder/new-file.txt", false, 100L).apply { setupMd5("md5-1") })
+        val dstFiles = setOf(FileInfo("old-file.txt", false, 100L).apply { setupMd5("md5-1") })
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        assertThat(result.toRenameFiles).containsExactly(
+            FileInfo("old-file.txt", false, 100L).apply { setupMd5("md5-1") } to "new-folder/new-file.txt"
+        )
+    }
 }

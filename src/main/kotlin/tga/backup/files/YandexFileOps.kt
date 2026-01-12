@@ -167,6 +167,10 @@ class YandexFileOps(
         yandex.delete(path.toYandexPath(), notPermanently)
     }
 
+    override fun moveFileOrFolder(fromPath: String, toPath: String) {
+        yandex.move(fromPath.toYandexPath(), toPath.toYandexPath())
+    }
+
     override fun close() {
         yandex.close()
     }

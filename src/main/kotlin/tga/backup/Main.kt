@@ -5,6 +5,7 @@ import tga.backup.files.*
 import tga.backup.log.alignRight
 import tga.backup.log.formatFileSize
 import tga.backup.log.formatNumber
+import tga.backup.log.logWrap
 import tga.backup.logo.printLogo
 import tga.backup.params.ArgumentIsMissed
 import tga.backup.params.Params
@@ -54,6 +55,11 @@ fun main(args: Array<String>) {
     if (!params.noOverriding) {
         logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
     }
+    logMovesList("\nTo Move (in '${params.dstFolder}')", actions.toMoveFiles)
+    logMovesList("\nTo Rename (in '${params.dstFolder}')", actions.toRenameFiles, isRenamed = true)
+    logMovesList("\nFolders to Move (in '${params.dstFolder}')", actions.toMoveFolders)
+    logMovesList("\nFolders to Rename (in '${params.dstFolder}')", actions.toRenameFolders, isRenamed = true)
+
     if (!params.noDeletion) {
         logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
     }
@@ -71,9 +77,16 @@ fun main(args: Array<String>) {
 
     printSummary(actions)
 
-    print("Continue (Y/N)?>")
+    val anyMoves = actions.toMoveFiles.isNotEmpty() || actions.toRenameFiles.isNotEmpty() || actions.toMoveFolders.isNotEmpty() || actions.toRenameFolders.isNotEmpty()
+
+    if (anyMoves) {
+        println("${yellow}Moving/Renaming actions detected. You can execute only them (skip copying/deleting) by typing 'm'.${reset}")
+    }
+
+    print("Continue (Y/N/m)?>")
     val continueAnswer = readln()
-    if (continueAnswer !in setOf("Y", "y")) {
+
+    if (continueAnswer !in setOf("Y", "y", "m", "M")) {
         srcFileOps.close()
         dstFileOps.close()
         return
@@ -81,12 +94,16 @@ fun main(args: Array<String>) {
 
     val results = mutableListOf<Result<Unit>>()
     try {
-        results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
-        if (!params.noOverriding) {
-            results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
-        }
-        if (!params.noDeletion) {
-            results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+        if (continueAnswer in setOf("m", "M")) {
+            results += runMoving(dstFileOps, params, actions)
+        } else {
+            results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
+            if (!params.noOverriding) {
+                results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+            }
+            if (!params.noDeletion) {
+                results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+            }
         }
     } finally {
         srcFileOps.close()
@@ -164,6 +181,36 @@ fun runDeleting(dstFileOps: FileOps, params: Params, toDelete: Set<FileInfo>): L
     }
 }
 
+fun runMoving(dstFileOps: FileOps, params: Params, actions: SyncActionCases): List<Result<Unit>> {
+    val results = mutableListOf<Result<Unit>>()
+    val separator = dstFileOps.filesSeparator
+
+    fun moveItems(items: Set<Pair<FileInfo, String>>, type: String) {
+        if (items.isEmpty()) return
+        println("\n$type:....")
+        items.sortedBy { it.second }.forEach { (src, dst) ->
+            val fromPath = "${params.dstFolder}${separator}${src.name}"
+            val toPath = "${params.dstFolder}${separator}${dst}"
+            try {
+                logWrap("Moving $type: $fromPath  --->  $toPath") {
+                    if (!params.dryRun) dstFileOps.moveFileOrFolder(fromPath, toPath)
+                }
+                results.add(Result.success(Unit))
+            } catch (e: Throwable) {
+                results.add(Result.failure(e))
+            }
+        }
+        println(".... $type finished\n")
+    }
+
+    moveItems(actions.toRenameFolders, "Folders Renaming")
+    moveItems(actions.toMoveFolders, "Folders Moving")
+    moveItems(actions.toRenameFiles, "Files Renaming")
+    moveItems(actions.toMoveFiles, "Files Moving")
+
+    return results
+}
+
 
 fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
     if (filesList.isEmpty()) {
@@ -178,6 +225,20 @@ fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
     }
 }
 
+fun logMovesList(prefix: String, movesList: Set<Pair<FileInfo, String>>, isRenamed: Boolean = false) {
+    if (movesList.isEmpty()) return
+    println("$prefix: \n")
+    val yellow = "\u001b[33m"
+    val reset = "\u001b[0m"
+
+    val l = formatNumber(movesList.size).length
+    movesList.sortedBy { it.second }.forEachIndexed { i, (src, dst) ->
+        print("${formatNumber(i).padStart(l)}. ")
+        if (isRenamed) print("${yellow}(renamed) ${reset}")
+        println("${src.name}  --->  $dst")
+    }
+}
+
 fun printSummary(actions: SyncActionCases) {
     val toAddFiles = actions.toAddFiles.filter { !it.isDirectory }
     val toOverrideFiles = actions.toOverrideFiles.filter { !it.isDirectory }
@@ -187,34 +248,64 @@ fun printSummary(actions: SyncActionCases) {
     val toOverrideFolders = actions.toOverrideFiles.filter { it.isDirectory }
     val toDeleteFolders = actions.toDeleteFiles.filter { it.isDirectory }
 
-    val (toAddFoldersStr, toOverrideFoldersStr, toDeleteFoldersStr, totalFoldersStr) = alignRight(
+    val toMoveFilesCount = actions.toMoveFiles.size
+    val toRenameFilesCount = actions.toRenameFiles.size
+    val toMoveFoldersCount = actions.toMoveFolders.size
+    val toRenameFoldersCount = actions.toRenameFolders.size
+
+    val foldersData = alignRight(
         "Folders count".length,
         formatNumber(toAddFolders.size),
         formatNumber(toOverrideFolders.size),
         formatNumber(toDeleteFolders.size),
         formatNumber(toAddFolders.size + toOverrideFolders.size),
-
+        formatNumber(toMoveFoldersCount),
+        formatNumber(toRenameFoldersCount),
     )
+    val toAddFoldersStr = foldersData[0]
+    val toOverrideFoldersStr = foldersData[1]
+    val toDeleteFoldersStr = foldersData[2]
+    val totalFoldersStr = foldersData[3]
+    val toMoveFoldersStr = foldersData[4]
+    val toRenameFoldersStr = foldersData[5]
 
-    val (toAddFilesStr, toOverrideFilesStr, toDeleteFilesStr, totalFilesStr) = alignRight(
+    val filesData = alignRight(
         "Files count".length,
         formatNumber(toAddFiles.size),
         formatNumber(toOverrideFiles.size),
         formatNumber(toDeleteFiles.size),
         formatNumber(toAddFiles.size + toOverrideFiles.size),
+        formatNumber(toMoveFilesCount),
+        formatNumber(toRenameFilesCount),
     )
+    val toAddFilesStr = filesData[0]
+    val toOverrideFilesStr = filesData[1]
+    val toDeleteFilesStr = filesData[2]
+    val totalFilesStr = filesData[3]
+    val toMoveFilesStr = filesData[4]
+    val toRenameFilesStr = filesData[5]
 
     val toAddSize       = toAddFiles.sumOf { it.size }
     val toOverrideSize  = toOverrideFiles.sumOf { it.size }
     val toDeleteSize    = toDeleteFiles.sumOf { it.size }
+    val toMoveSize      = actions.toMoveFiles.sumOf { it.first.size }
+    val toRenameSize    = actions.toRenameFiles.sumOf { it.first.size }
 
-    val (toAddSizeStr, toOverrideSizeStr, toDeleteSizeStr, totalSizeStr) = alignRight(
+    val sizesData = alignRight(
         "Total Size".length,
         formatFileSize(toAddSize),
         formatFileSize(toOverrideSize),
         formatFileSize(toDeleteSize),
         formatFileSize(toAddSize + toOverrideSize),
+        formatFileSize(toMoveSize),
+        formatFileSize(toRenameSize),
     )
+    val toAddSizeStr = sizesData[0]
+    val toOverrideSizeStr = sizesData[1]
+    val toDeleteSizeStr = sizesData[2]
+    val totalSizeStr = sizesData[3]
+    val toMoveSizeStr = sizesData[4]
+    val toRenameSizeStr = sizesData[5]
 
     val lineStr = "-".repeat("| Action    |  |  |  |".length + toAddFoldersStr.length + toAddFilesStr.length + toAddSizeStr.length)
 
@@ -226,6 +317,9 @@ fun printSummary(actions: SyncActionCases) {
     println("| Override  | $toOverrideFoldersStr | $toOverrideFilesStr | $toOverrideSizeStr |")
     println(lineStr)
     println("| To upload | $totalFoldersStr | $totalFilesStr | $totalSizeStr |")
+    println(lineStr)
+    println("| Move      | $toMoveFoldersStr | $toMoveFilesStr | $toMoveSizeStr |")
+    println("| Rename    | $toRenameFoldersStr | $toRenameFilesStr | $toRenameSizeStr |")
     println(lineStr)
     println("| To Delete | $toDeleteFoldersStr | $toDeleteFilesStr | $toDeleteSizeStr |")
     println(lineStr)
