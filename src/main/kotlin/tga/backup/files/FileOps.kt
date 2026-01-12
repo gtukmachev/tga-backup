@@ -11,12 +11,12 @@ abstract class FileOps(
     val filesSeparator: String,
     val excludePatterns: List<String> = emptyList()
 ) {
-    private val excludeRegexes: List<Regex> by lazy {
-        excludePatterns.map { Regex(it) }
+    private val exclusionMatcher: ExclusionMatcher by lazy {
+        ExclusionMatcher(excludePatterns)
     }
 
     protected fun isExcluded(fileName: String): Boolean {
-        return excludeRegexes.any { it.matches(fileName) }
+        return exclusionMatcher.isExcluded(fileName)
     }
     // Interface part
     abstract fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> // platform specific

@@ -220,7 +220,7 @@ class FilesComparatorTest {
             FileInfo("old-folder/.md5", false, 50L).apply { setupMd5("md5-cache-old") }
         )
 
-        val excludePatterns = listOf("^\\.md5$")
+        val excludePatterns = listOf(".md5")
         val result = compareSrcAndDst(srcFiles, dstFiles, excludePatterns)
 
         // Folder should be detected as moved, ignoring the .md5 file

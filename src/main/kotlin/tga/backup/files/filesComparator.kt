@@ -11,10 +11,10 @@ data class SyncActionCases(
 )
 
 fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePatterns: List<String> = emptyList()): SyncActionCases {
-    val excludeRegexes = excludePatterns.map { Regex(it) }
+    val exclusionMatcher = ExclusionMatcher(excludePatterns)
     fun isExcluded(fileName: String): Boolean {
         val baseName = fileName.substringAfterLast('/')
-        return excludeRegexes.any { it.matches(baseName) }
+        return exclusionMatcher.isExcluded(baseName)
     }
     val srcFilesFiltered = srcFiles.filter { it.readException == null }
 
