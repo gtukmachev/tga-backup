@@ -6,6 +6,7 @@ import com.typesafe.config.ConfigRenderOptions
 import java.io.File
 
 data class Params(
+    val profile: String = "default",
     val srcRoot: String,
     val dstRoot: String,
     val path: String,
@@ -18,6 +19,7 @@ data class Params(
     val yandexUser: String? = null,
     val yandexToken: String? = null,
     val exclude: List<String> = emptyList(),
+    val remoteCache: Boolean = false,
 ) {
 
     val srcFolder: String get() = normalizePath(srcRoot, path)
@@ -26,6 +28,7 @@ data class Params(
     override fun toString(): String {
         return """
                     |Params(
+                    |   profile='$profile',
                     |   srcRoot='$srcRoot',
                     |   dstRoot='$dstRoot',
                     |   path='$path',
@@ -37,7 +40,8 @@ data class Params(
                     |   parallelThreads=$parallelThreads,
                     |   yandexUser='$yandexUser',
                     |   yandexToken='${yandexToken?.let { "***" } ?: ""}',
-                    |   exclude=$exclude
+                    |   exclude=$exclude,
+                    |   remoteCache=$remoteCache
                     |)
                 """.trimMargin()
     }
@@ -63,10 +67,11 @@ private val argToConfigMap = mapOf(
     "-t" to "parallelThreads", "--threads" to "parallelThreads",
     "-yu" to "yandexUser",
     "-yt" to "yandexToken",
-    "-x" to "exclude", "--exclude" to "exclude"
+    "-x" to "exclude", "--exclude" to "exclude",
+    "-rm" to "remoteCache", "--remote-cache" to "remoteCache"
 )
 
-private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion", "-no", "--no-overriding")
+private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion", "-no", "--no-overriding", "-rm", "--remote-cache")
 
 fun Array<String>.readParams(): Params {
     val (profile, argsList) = if (isNotEmpty() && !get(0).startsWith("-")) {
@@ -118,6 +123,7 @@ fun Array<String>.readParams(): Params {
         .withFallback(defaultConfig)
 
     val params = Params(
+        profile = profile,
         srcRoot = mergedConfig.getString("srcRoot"),
         dstRoot = mergedConfig.getString("dstRoot"),
         path = mergedConfig.getString("path"),
@@ -129,7 +135,8 @@ fun Array<String>.readParams(): Params {
         parallelThreads = mergedConfig.getInt("parallelThreads"),
         yandexUser = if (mergedConfig.hasPath("yandexUser")) mergedConfig.getString("yandexUser").let { if (it.isBlank()) null else it } else null,
         yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null,
-        exclude = if (mergedConfig.hasPath("exclude")) mergedConfig.getStringList("exclude") else emptyList()
+        exclude = if (mergedConfig.hasPath("exclude")) mergedConfig.getStringList("exclude") else emptyList(),
+        remoteCache = mergedConfig.getBoolean("remoteCache")
     )
 
     if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")
