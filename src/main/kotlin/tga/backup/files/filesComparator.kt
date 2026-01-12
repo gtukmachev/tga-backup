@@ -88,28 +88,28 @@ fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePa
     for (delFolder in sortedDeleteFolders) {
         val delFolderPath = delFolder.name + (if (delFolder.name.isEmpty()) "" else "/")
         
-        // Find if there's a folder in toAddFolders that contains all "moved" files from this folder
-        // AND this folder doesn't have any files that were NOT moved to that new folder.
-        
-        // This is tricky. Let's simplify:
-        // A folder is a candidate if its immediate children files are all moved to the same new location.
+        // Check if ALL files (recursive) in delFolder are moved/renamed
         // Ignore excluded files when checking
-        val filesInDelFolder = dstFiles.filter { it.name.startsWith(delFolderPath) && !it.isDirectory && it.name.substring(delFolderPath.length).indexOfAny(charArrayOf('/','\\')) == -1 && !isExcluded(it.name) }
-        if (filesInDelFolder.isEmpty()) continue
+        val allFilesInDelFolder = dstFiles.filter { it.name.startsWith(delFolderPath) && !it.isDirectory && !isExcluded(it.name) }
+        if (allFilesInDelFolder.isEmpty()) continue
 
-        val firstFile = filesInDelFolder.first()
-        val newFirstFileName = fileMovesAndRenames[firstFile] ?: continue
+        // Find the first file that was moved/renamed to determine the target folder
+        val firstFile = allFilesInDelFolder.firstOrNull { fileMovesAndRenames.containsKey(it) } ?: continue
+        val newFirstFileName = fileMovesAndRenames[firstFile]!!
         
         // Potential new folder path
         val suffix = firstFile.name.substring(delFolderPath.length)
-        val newFolderPath = newFirstFileName.substring(0, newFirstFileName.length - suffix.length)
+        val endIndex = newFirstFileName.length - suffix.length
+        
+        // Safety check: if suffix is longer than newFirstFileName, skip this folder
+        if (endIndex < 0) continue
+        
+        val newFolderPath = newFirstFileName.substring(0, endIndex)
         val newFolderName = if (newFolderPath.endsWith("/")) newFolderPath.substring(0, newFolderPath.length - 1) else newFolderPath
         
         val addFolder = toAddFolders.find { it.name == newFolderName }
         if (addFolder != null) {
             // Check if ALL files (recursive) in delFolder are moved to addFolder
-            // Ignore excluded files when checking
-            val allFilesInDelFolder = dstFiles.filter { it.name.startsWith(delFolderPath) && !it.isDirectory && !isExcluded(it.name) }
             val allMovedToCorrectPlace = allFilesInDelFolder.all { 
                 val relativePath = it.name.substring(delFolderPath.length)
                 fileMovesAndRenames[it] == addFolder.name + "/" + relativePath

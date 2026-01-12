@@ -231,4 +231,97 @@ class FilesComparatorTest {
         assertThat(result.toAddFiles).contains(FileInfo("new-folder/.md5", false, 50L).apply { setupMd5("md5-cache") })
         assertThat(result.toDeleteFiles).contains(FileInfo("old-folder/.md5", false, 50L).apply { setupMd5("md5-cache-old") })
     }
+
+    @Test
+    fun `test folder rename with nested subfolders - no direct files`() {
+        // This reproduces the reported issue: folder with only subfolders (no direct files)
+        // Example: "2017-09-01 Линейка 3В (Андрей)" -> "2017-09-01 Линейка 3Д (Андрей)"
+        val srcFiles = setOf(
+            FileInfo("2017", true, 10L),
+            FileInfo("2017/09 Сентябрь", true, 10L),
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3Д (Андрей)", true, 10L),
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3Д (Андрей)/photo1.jpg", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3Д (Андрей)/photo2.jpg", false, 200L).apply { setupMd5("md5-2") },
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3Д (Андрей)/photo3.jpg", false, 300L).apply { setupMd5("md5-3") }
+        )
+        val dstFiles = setOf(
+            FileInfo("2017", true, 10L),
+            FileInfo("2017/09 Сентябрь", true, 10L),
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3В (Андрей)", true, 10L),
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3В (Андрей)/photo1.jpg", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3В (Андрей)/photo2.jpg", false, 200L).apply { setupMd5("md5-2") },
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3В (Андрей)/photo3.jpg", false, 300L).apply { setupMd5("md5-3") }
+        )
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        // Should detect folder rename, not individual file renames
+        assertThat(result.toRenameFolders).containsExactly(
+            FileInfo("2017/09 Сентябрь/2017-09-01 Линейка 3В (Андрей)", true, 10L) to "2017/09 Сентябрь/2017-09-01 Линейка 3Д (Андрей)"
+        )
+        assertThat(result.toRenameFiles).isEmpty()
+        assertThat(result.toMoveFiles).isEmpty()
+        assertThat(result.toAddFiles).isEmpty()
+        assertThat(result.toDeleteFiles).isEmpty()
+    }
+
+    @Test
+    fun `test folder rename with deeply nested structure`() {
+        // Test with multiple levels of nesting
+        val srcFiles = setOf(
+            FileInfo("parent", true, 10L),
+            FileInfo("parent/renamed-folder", true, 10L),
+            FileInfo("parent/renamed-folder/subfolder1", true, 10L),
+            FileInfo("parent/renamed-folder/subfolder1/file1.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("parent/renamed-folder/subfolder2", true, 10L),
+            FileInfo("parent/renamed-folder/subfolder2/file2.txt", false, 200L).apply { setupMd5("md5-2") }
+        )
+        val dstFiles = setOf(
+            FileInfo("parent", true, 10L),
+            FileInfo("parent/old-folder", true, 10L),
+            FileInfo("parent/old-folder/subfolder1", true, 10L),
+            FileInfo("parent/old-folder/subfolder1/file1.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("parent/old-folder/subfolder2", true, 10L),
+            FileInfo("parent/old-folder/subfolder2/file2.txt", false, 200L).apply { setupMd5("md5-2") }
+        )
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        // Should detect folder rename at the correct level
+        assertThat(result.toRenameFolders).containsExactly(
+            FileInfo("parent/old-folder", true, 10L) to "parent/renamed-folder"
+        )
+        assertThat(result.toRenameFiles).isEmpty()
+        assertThat(result.toMoveFiles).isEmpty()
+        // Subfolders should not be in add/delete lists
+        assertThat(result.toAddFiles).isEmpty()
+        assertThat(result.toDeleteFiles).isEmpty()
+    }
+
+    @Test
+    fun `test edge case - file moved to shorter path prevents folder detection`() {
+        // This reproduces the bug: when a file from a deep folder is moved to a shorter path,
+        // the suffix can be longer than the new file name, causing StringIndexOutOfBoundsException
+        val srcFiles = setOf(
+            FileInfo("short.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("other-folder", true, 10L),
+            FileInfo("other-folder/file2.txt", false, 200L).apply { setupMd5("md5-2") }
+        )
+        val dstFiles = setOf(
+            FileInfo("very/long/nested/folder", true, 10L),
+            FileInfo("very/long/nested/folder/short.txt", false, 100L).apply { setupMd5("md5-1") },
+            FileInfo("other-folder", true, 10L),
+            FileInfo("other-folder/file2.txt", false, 200L).apply { setupMd5("md5-2") }
+        )
+
+        // Should not throw StringIndexOutOfBoundsException
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        // The file should be detected as renamed (moved to root with same name)
+        assertThat(result.toMoveFiles).containsExactly(
+            FileInfo("very/long/nested/folder/short.txt", false, 100L).apply { setupMd5("md5-1") } to "short.txt"
+        )
+        // The folder should be in delete list (not detected as moved because only one file)
+        assertThat(result.toDeleteFiles).contains(FileInfo("very/long/nested/folder", true, 10L))
+    }
 }
