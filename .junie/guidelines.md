@@ -1,5 +1,9 @@
 ### Project Description: TGA Backup Utility
 
+Always follow the safety guideline: [safe-execution-guide.md](safe-execution-guide.md)
+
+#### Project Goals
+
 #### Main Goal
 The **TGA Backup Utility** is a command-line tool designed to synchronize files and directories between different storage providers. 
 Its primary focus is creating and maintaining backups, but not synchronization:
