@@ -73,6 +73,8 @@ private val argToConfigMap = mapOf(
 
 private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-deletion", "-no", "--no-overriding", "-rm", "--remote-cache")
 
+private val specialArgs = setOf("-up", "--update-profile")
+
 fun Array<String>.readParams(): Params {
     val (profile, argsList) = if (isNotEmpty() && !get(0).startsWith("-")) {
         get(0) to sliceArray(1 until size)
@@ -85,6 +87,15 @@ fun Array<String>.readParams(): Params {
     var i = 0
     while (i < argsList.size) {
         val arg = argsList[i]
+        
+        // Check if argument starts with '-' and is not recognized
+        if (arg.startsWith("-")) {
+            val configKey = argToConfigMap[arg]
+            if (configKey == null && !specialArgs.contains(arg)) {
+                throw UnrecognizedArgument(arg)
+            }
+        }
+        
         val configKey = argToConfigMap[arg]
         if (configKey != null) {
             if (booleanArgs.contains(arg)) {
@@ -183,3 +194,5 @@ private fun updateProfileFile(profileName: String, cliMap: Map<String, Any>, cur
 }
 
 class ArgumentIsMissed(arg: String) : Exception("Argument $arg is expected!")
+
+class UnrecognizedArgument(arg: String) : Exception("Unrecognized argument: $arg")

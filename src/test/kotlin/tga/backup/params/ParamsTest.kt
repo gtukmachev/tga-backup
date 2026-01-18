@@ -1,6 +1,7 @@
 package tga.backup.params
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.io.File
 
@@ -122,5 +123,41 @@ class ParamsTest {
         } finally {
             if (profileFile.exists()) profileFile.delete()
         }
+    }
+
+    @Test
+    fun `test unrecognized argument with single dash throws exception`() {
+        val args = arrayOf("-sr", "src", "-dr", "dst", "-remote-cache")
+        
+        assertThatThrownBy { args.readParams() }
+            .isInstanceOf(UnrecognizedArgument::class.java)
+            .hasMessageContaining("-remote-cache")
+    }
+
+    @Test
+    fun `test unrecognized argument throws exception`() {
+        val args = arrayOf("-sr", "src", "-dr", "dst", "--unknown-flag")
+        
+        assertThatThrownBy { args.readParams() }
+            .isInstanceOf(UnrecognizedArgument::class.java)
+            .hasMessageContaining("--unknown-flag")
+    }
+
+    @Test
+    fun `test multiple unrecognized arguments throws exception on first`() {
+        val args = arrayOf("-sr", "src", "-dr", "dst", "-bad1", "-bad2")
+        
+        assertThatThrownBy { args.readParams() }
+            .isInstanceOf(UnrecognizedArgument::class.java)
+            .hasMessageContaining("-bad1")
+    }
+
+    @Test
+    fun `test remote cache with correct flag works`() {
+        val args1 = arrayOf("-sr", "src", "-dr", "dst", "-rm")
+        assertThat(args1.readParams().remoteCache).isTrue()
+
+        val args2 = arrayOf("-sr", "src", "-dr", "dst", "--remote-cache")
+        assertThat(args2.readParams().remoteCache).isTrue()
     }
 }

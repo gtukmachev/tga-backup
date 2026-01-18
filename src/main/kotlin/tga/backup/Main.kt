@@ -7,11 +7,11 @@ import tga.backup.log.formatFileSize
 import tga.backup.log.formatNumber
 import tga.backup.log.logWrap
 import tga.backup.logo.printLogo
-import tga.backup.params.ArgumentIsMissed
 import tga.backup.params.Params
 import tga.backup.params.readParams
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.io.File
+import kotlin.system.exitProcess
 
 private val logger = KotlinLogging.logger {  }
 
@@ -26,163 +26,168 @@ private fun logPhaseDuration(phaseName: String, durationMs: Long) {
 }
 
 fun main(args: Array<String>) {
-    System.setProperty("java.rmi.server.hostname", "localhost")
-
-    printLogo()
-
-    logPhase("Parameter Parsing & Validation")
-    val params = try {
-        args.readParams()
-    } catch (e: ArgumentIsMissed) {
-        logger.error { e.message }
-        return
-    }
-    println("Current folder = '${File(".").canonicalFile.path}'")
-    println(params)
-
-    val srcFileOps = buildFileOpsByURL(params.srcFolder, params)
-    val dstFileOps = buildFileOpsByURL(params.dstFolder, params)
-
-    logPhase("Source Scanning")
-    val srcScanStart = System.currentTimeMillis()
-    println("\nListing source files:")
-    val srcFiles = if (params.remoteCache && params.srcFolder.contains("://")) {
-        val cacheFilePath = getCacheFilePath(params.profile, params.srcFolder)
-        readRemoteCache(cacheFilePath) ?: srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
-    } else {
-        val files = srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
-        if (params.srcFolder.contains("://")) {
-            val cacheFilePath = getCacheFilePath(params.profile, params.srcFolder)
-            writeRemoteCache(cacheFilePath, files)
-        }
-        files
-    }
-    if (params.verbose) logFilesList("Source", srcFiles)
-    logPhaseDuration("Source Scanning", System.currentTimeMillis() - srcScanStart)
-
-    logPhase("Destination Scanning")
-    val dstScanStart = System.currentTimeMillis()
-    val rootDstFolder =  FileInfo("", true, 10L)
-    val dstFiles = if (params.remoteCache && params.dstFolder.contains("://")) {
-        val cacheFilePath = getCacheFilePath(params.profile, params.dstFolder)
-        (readRemoteCache(cacheFilePath) ?: dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false)) - rootDstFolder
-    } else {
-        val files = dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false) - rootDstFolder
-        if (params.dstFolder.contains("://")) {
-            val cacheFilePath = getCacheFilePath(params.profile, params.dstFolder)
-            writeRemoteCache(cacheFilePath, files + rootDstFolder)
-        }
-        files
-    }
-    if (params.verbose) logFilesList("Destination", dstFiles)
-    logPhaseDuration("Destination Scanning", System.currentTimeMillis() - dstScanStart)
-
-    logPhase("Comparison & Plan Building")
-    val comparisonStart = System.currentTimeMillis()
-    val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles, excludePatterns = params.exclude)
-    logPhaseDuration("Comparison & Plan Building", System.currentTimeMillis() - comparisonStart)
-
-    val excludedFiles = srcFiles.filter { it.readException != null }
-
-    if (actions.toAddFiles.isEmpty() && actions.toDeleteFiles.isEmpty() && actions.toOverrideFiles.isEmpty()) {
-        logger.info { "The source and destination are already exactly the same. No actions required." }
-        srcFileOps.close()
-        dstFileOps.close()
-        return
-    }
-
-    logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toAddFiles)
-    if (!params.noOverriding) {
-        logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
-    }
-    logMovesList("\nTo Move (in '${params.dstFolder}')", actions.toMoveFiles)
-    logMovesList("\nTo Rename (in '${params.dstFolder}')", actions.toRenameFiles, isRenamed = true)
-    logMovesList("\nFolders to Move (in '${params.dstFolder}')", actions.toMoveFolders)
-    logMovesList("\nFolders to Rename (in '${params.dstFolder}')", actions.toRenameFolders, isRenamed = true)
-
-    if (!params.noDeletion) {
-        logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
-    }
-
-    val yellow = "\u001b[33m"
-    val reset = "\u001b[0m"
-
-    if (params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
-        println("${yellow}WARNING: The 'no-overriding' parameter is specified. The overriding phase will be skipped.${reset}")
-    }
-
-    if (params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
-        println("${yellow}WARNING: The 'no-deletion' parameter is specified. The deletion phase will be skipped.${reset}")
-    }
-
-    printSummary(actions)
-
-    val anyMoves = actions.toMoveFiles.isNotEmpty() || actions.toRenameFiles.isNotEmpty() || actions.toMoveFolders.isNotEmpty() || actions.toRenameFolders.isNotEmpty()
-
-    if (anyMoves) {
-        println("${yellow}Moving/Renaming actions detected. You can execute only them (skip copying/deleting) by typing 'm'.${reset}")
-    }
-
-    print("Continue (Y/N/m)?>")
-    val continueAnswer = readln()
-
-    if (continueAnswer !in setOf("Y", "y", "m", "M")) {
-        srcFileOps.close()
-        dstFileOps.close()
-        return
-    }
-
-    logPhase("Execution Phase")
-    val executionStart = System.currentTimeMillis()
-    val results = mutableListOf<Result<Unit>>()
     try {
-        if (continueAnswer in setOf("m", "M")) {
-            logPhase("Moving/Renaming")
-            val moveStart = System.currentTimeMillis()
-            results += runMoving(dstFileOps, params, actions)
-            logPhaseDuration("Moving/Renaming", System.currentTimeMillis() - moveStart)
+        System.setProperty("java.rmi.server.hostname", "localhost")
+
+        printLogo()
+
+        logPhase("Parameter Parsing & Validation")
+        val params = args.readParams()
+
+        println("Current folder = '${File(".").canonicalFile.path}'")
+        println(params)
+
+        val srcFileOps = buildFileOpsByURL(params.srcFolder, params)
+        val dstFileOps = buildFileOpsByURL(params.dstFolder, params)
+
+        logPhase("Source Scanning")
+        val srcScanStart = System.currentTimeMillis()
+        println("\nListing source files:")
+        val srcFiles = if (params.remoteCache && params.srcFolder.contains("://")) {
+            val cacheFilePath = getCacheFilePath(params.profile, params.srcFolder)
+            readRemoteCache(cacheFilePath) ?: srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
         } else {
-            if (actions.toAddFiles.isNotEmpty()) {
-                logPhase("Copying Files")
-                val copyStart = System.currentTimeMillis()
-                results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
-                logPhaseDuration("Copying Files", System.currentTimeMillis() - copyStart)
+            val files = srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
+            if (params.srcFolder.contains("://")) {
+                val cacheFilePath = getCacheFilePath(params.profile, params.srcFolder)
+                writeRemoteCache(cacheFilePath, files)
             }
-            
-            if (!params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
-                logPhase("Overriding Files")
-                val overrideStart = System.currentTimeMillis()
-                results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
-                logPhaseDuration("Overriding Files", System.currentTimeMillis() - overrideStart)
+            files
+        }
+        if (params.verbose) logFilesList("Source", srcFiles)
+        logPhaseDuration("Source Scanning", System.currentTimeMillis() - srcScanStart)
+
+        logPhase("Destination Scanning")
+        val dstScanStart = System.currentTimeMillis()
+        val rootDstFolder = FileInfo("", true, 10L)
+        val dstFiles = if (params.remoteCache && params.dstFolder.contains("://")) {
+            val cacheFilePath = getCacheFilePath(params.profile, params.dstFolder)
+            (readRemoteCache(cacheFilePath) ?: dstFileOps.getFilesSet(
+                params.dstFolder,
+                throwIfNotExist = false
+            )) - rootDstFolder
+        } else {
+            val files = dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false) - rootDstFolder
+            if (params.dstFolder.contains("://")) {
+                val cacheFilePath = getCacheFilePath(params.profile, params.dstFolder)
+                writeRemoteCache(cacheFilePath, files + rootDstFolder)
             }
-            
-            if (!params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
-                logPhase("Deleting Files")
-                val deleteStart = System.currentTimeMillis()
-                results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
-                logPhaseDuration("Deleting Files", System.currentTimeMillis() - deleteStart)
+            files
+        }
+        if (params.verbose) logFilesList("Destination", dstFiles)
+        logPhaseDuration("Destination Scanning", System.currentTimeMillis() - dstScanStart)
+
+        logPhase("Comparison & Plan Building")
+        val comparisonStart = System.currentTimeMillis()
+        val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles, excludePatterns = params.exclude)
+        logPhaseDuration("Comparison & Plan Building", System.currentTimeMillis() - comparisonStart)
+
+        val excludedFiles = srcFiles.filter { it.readException != null }
+
+        if (actions.toAddFiles.isEmpty() && actions.toDeleteFiles.isEmpty() && actions.toOverrideFiles.isEmpty()) {
+            logger.info { "The source and destination are already exactly the same. No actions required." }
+            srcFileOps.close()
+            dstFileOps.close()
+            return
+        }
+
+        logFilesList("\nTo Copy ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toAddFiles)
+        if (!params.noOverriding) {
+            logFilesList("\nTo Override ('${params.srcFolder}' ---> '${params.dstFolder}')", actions.toOverrideFiles)
+        }
+        logMovesList("\nTo Move (in '${params.dstFolder}')", actions.toMoveFiles)
+        logMovesList("\nTo Rename (in '${params.dstFolder}')", actions.toRenameFiles, isRenamed = true)
+        logMovesList("\nFolders to Move (in '${params.dstFolder}')", actions.toMoveFolders)
+        logMovesList("\nFolders to Rename (in '${params.dstFolder}')", actions.toRenameFolders, isRenamed = true)
+
+        if (!params.noDeletion) {
+            logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
+        }
+
+        val yellow = "\u001b[33m"
+        val reset = "\u001b[0m"
+
+        if (params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
+            println("${yellow}WARNING: The 'no-overriding' parameter is specified. The overriding phase will be skipped.${reset}")
+        }
+
+        if (params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
+            println("${yellow}WARNING: The 'no-deletion' parameter is specified. The deletion phase will be skipped.${reset}")
+        }
+
+        printSummary(actions)
+
+        val anyMoves =
+            actions.toMoveFiles.isNotEmpty() || actions.toRenameFiles.isNotEmpty() || actions.toMoveFolders.isNotEmpty() || actions.toRenameFolders.isNotEmpty()
+
+        if (anyMoves) {
+            println("${yellow}Moving/Renaming actions detected. You can execute only them (skip copying/deleting) by typing 'm'.${reset}")
+        }
+
+        print("Continue (Y/N/m)?>")
+        val continueAnswer = readln()
+
+        if (continueAnswer !in setOf("Y", "y", "m", "M")) {
+            srcFileOps.close()
+            dstFileOps.close()
+            return
+        }
+
+        logPhase("Execution Phase")
+        val executionStart = System.currentTimeMillis()
+        val results = mutableListOf<Result<Unit>>()
+        try {
+            if (continueAnswer in setOf("m", "M")) {
+                logPhase("Moving/Renaming")
+                val moveStart = System.currentTimeMillis()
+                results += runMoving(dstFileOps, params, actions)
+                logPhaseDuration("Moving/Renaming", System.currentTimeMillis() - moveStart)
+            } else {
+                if (actions.toAddFiles.isNotEmpty()) {
+                    logPhase("Copying Files")
+                    val copyStart = System.currentTimeMillis()
+                    results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
+                    logPhaseDuration("Copying Files", System.currentTimeMillis() - copyStart)
+                }
+
+                if (!params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
+                    logPhase("Overriding Files")
+                    val overrideStart = System.currentTimeMillis()
+                    results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
+                    logPhaseDuration("Overriding Files", System.currentTimeMillis() - overrideStart)
+                }
+
+                if (!params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
+                    logPhase("Deleting Files")
+                    val deleteStart = System.currentTimeMillis()
+                    results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+                    logPhaseDuration("Deleting Files", System.currentTimeMillis() - deleteStart)
+                }
+            }
+        } finally {
+            srcFileOps.close()
+            dstFileOps.close()
+        }
+        logPhaseDuration("Execution Phase", System.currentTimeMillis() - executionStart)
+
+        if (excludedFiles.isNotEmpty()) {
+            println("\nEXCLUDED FILES (due to read errors):")
+            excludedFiles.forEach { println("- ${it.name}") }
+
+            println("\nEXCLUDED FILES WITH STACKTRACES:")
+            excludedFiles.forEach {
+                println("\n\nFile: ${it.name}")
+                it.readException?.printStackTrace()
             }
         }
-    } finally {
-        srcFileOps.close()
-        dstFileOps.close()
+
+        logPhase("Final Summary")
+        printFinalSummary(results)
+        logPhase("Synchronization Complete")
+    } catch (t: Throwable) {
+        logger.error(t) { "Backup failed with an exception." }
+        exitProcess(-1)
     }
-    logPhaseDuration("Execution Phase", System.currentTimeMillis() - executionStart)
-
-    if (excludedFiles.isNotEmpty()) {
-        println("\nEXCLUDED FILES (due to read errors):")
-        excludedFiles.forEach { println("- ${it.name}") }
-
-        println("\nEXCLUDED FILES WITH STACKTRACES:")
-        excludedFiles.forEach {
-            println("\n\nFile: ${it.name}")
-            it.readException?.printStackTrace()
-        }
-    }
-
-    logPhase("Final Summary")
-    printFinalSummary(results)
-    logPhase("Synchronization Complete")
 }
 
 fun printFinalSummary(results: List<Result<Unit>>) {
