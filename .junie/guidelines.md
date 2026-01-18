@@ -1,6 +1,7 @@
 ### Project Description: TGA Backup Utility
 
-Always follow the safety guideline: [safe-execution-guide.md](safe-execution-guide.md)
+## ⚠️ CRITICAL WARNING
+When run the project - ALWAYS follow the safety guideline: [safe-execution-guide.md](safe-execution-guide.md)
 
 #### Project Goals
 
