@@ -7,14 +7,16 @@ import java.io.File
 
 data class Params(
     val profile: String = "default",
-    val srcRoot: String,
-    val dstRoot: String,
-    val path: String,
-    val dryRun: Boolean,
-    val verbose: Boolean,
-    val devMode: Boolean,
-    val noDeletion: Boolean,
-    val noOverriding: Boolean,
+    val mode: String = "sync",
+    val srcRoot: String = "",
+    val dstRoot: String = "",
+    val path: String = "",
+    val target: String = "src",
+    val dryRun: Boolean = false,
+    val verbose: Boolean = false,
+    val devMode: Boolean = false,
+    val noDeletion: Boolean = false,
+    val noOverriding: Boolean = false,
     val parallelThreads: Int = 10,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
@@ -24,14 +26,21 @@ data class Params(
 
     val srcFolder: String get() = normalizePath(srcRoot, path)
     val dstFolder: String get() = normalizePath(dstRoot, path)
+    val targetFolder: String get() = when (target) {
+        "src" -> srcFolder
+        "dst" -> dstFolder
+        else -> throw IllegalArgumentException("Invalid target: $target. Must be 'src' or 'dst'")
+    }
 
     override fun toString(): String {
         return """
                     |Params(
                     |   profile='$profile',
+                    |   mode='$mode',
                     |   srcRoot='$srcRoot',
                     |   dstRoot='$dstRoot',
                     |   path='$path',
+                    |   target='$target',
                     |   dryRun=$dryRun,
                     |   verbose=$verbose,
                     |   devMode=$devMode,
@@ -56,9 +65,11 @@ fun normalizePath(root: String, relative: String): String {
 }
 
 private val argToConfigMap = mapOf(
+    "-m" to "mode", "--mode" to "mode",
     "-sr" to "srcRoot", "--source-root" to "srcRoot",
     "-dr" to "dstRoot", "--destination-root" to "dstRoot",
     "-p" to "path", "--path" to "path",
+    "-ta" to "target", "--target" to "target",
     "--dry-run" to "dryRun",
     "--verbose" to "verbose",
     "-dev" to "devMode",
@@ -130,11 +141,21 @@ fun Array<String>.readParams(): Params {
         .withFallback(profileConfig)
         .withFallback(defaultConfig)
 
+    val mode = if (mergedConfig.hasPath("mode")) mergedConfig.getString("mode") else "sync"
+    val target = if (mergedConfig.hasPath("target")) mergedConfig.getString("target") else "src"
+    
+    // For duplicates mode, set default srcRoot to current directory if not specified
+    val srcRoot = if (mergedConfig.hasPath("srcRoot")) mergedConfig.getString("srcRoot") else ""
+    val dstRoot = if (mergedConfig.hasPath("dstRoot")) mergedConfig.getString("dstRoot") else ""
+    val path = if (mergedConfig.hasPath("path")) mergedConfig.getString("path") else ""
+    
     val params = Params(
         profile = profile,
-        srcRoot = mergedConfig.getString("srcRoot"),
-        dstRoot = mergedConfig.getString("dstRoot"),
-        path = mergedConfig.getString("path"),
+        mode = mode,
+        srcRoot = srcRoot,
+        dstRoot = dstRoot,
+        path = path,
+        target = target,
         dryRun = mergedConfig.getBoolean("dryRun"),
         verbose = mergedConfig.getBoolean("verbose"),
         devMode = mergedConfig.getBoolean("devMode"),
@@ -147,8 +168,30 @@ fun Array<String>.readParams(): Params {
         remoteCache = mergedConfig.getBoolean("remoteCache")
     )
 
-    if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")
-    if (params.dstRoot.isBlank()) throw ArgumentIsMissed("-dr (--destination-root)")
+    // Mode-specific validation
+    when (params.mode) {
+        "sync" -> {
+            if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")
+            if (params.dstRoot.isBlank()) throw ArgumentIsMissed("-dr (--destination-root)")
+        }
+        "duplicates" -> {
+            // For duplicates mode, we need at least one root specified
+            val targetRoot = when (params.target) {
+                "src" -> params.srcRoot
+                "dst" -> params.dstRoot
+                else -> throw IllegalArgumentException("Invalid target: ${params.target}. Must be 'src' or 'dst'")
+            }
+            if (targetRoot.isBlank()) {
+                // Default to current directory
+                val defaultRoot = System.getProperty("user.dir")
+                return params.copy(
+                    srcRoot = if (params.target == "src") defaultRoot else params.srcRoot,
+                    dstRoot = if (params.target == "dst") defaultRoot else params.dstRoot
+                )
+            }
+        }
+        else -> throw IllegalArgumentException("Unknown mode: ${params.mode}. Supported modes: sync, duplicates")
+    }
 
     if (updateProfile) {
         updateProfileFile(profile, cliMap, profileConfig, defaultConfig)

@@ -1,6 +1,7 @@
 package tga.backup
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import tga.backup.duplicates.runDuplicatesMode
 import tga.backup.files.*
 import tga.backup.log.alignRight
 import tga.backup.log.formatFileSize
@@ -36,6 +37,20 @@ fun main(args: Array<String>) {
 
         println("Current folder = '${File(".").canonicalFile.path}'")
         println(params)
+
+        // Route to appropriate mode
+        when (params.mode) {
+            "duplicates" -> {
+                runDuplicatesMode(params)
+                return
+            }
+            "sync" -> {
+                // Continue with sync mode logic below
+            }
+            else -> {
+                throw IllegalArgumentException("Unknown mode: ${params.mode}. Supported modes: sync, duplicates")
+            }
+        }
 
         val srcFileOps = buildFileOpsByURL(params.srcFolder, params)
         val dstFileOps = buildFileOpsByURL(params.dstFolder, params)

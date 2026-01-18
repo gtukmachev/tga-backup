@@ -1,0 +1,7 @@
+#!/bin/bash
+JAR_FILE="target/tga-backup-1.0-SNAPSHOT-jar-with-dependencies.jar"
+# Check if JAR exists in target, if not try current directory
+if [ ! -f "$JAR_FILE" ]; then
+    JAR_FILE="tga-backup-1.0-SNAPSHOT-jar-with-dependencies.jar"
+fi
+java -jar "$JAR_FILE" -m duplicates "$@"
