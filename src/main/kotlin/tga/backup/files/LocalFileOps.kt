@@ -74,14 +74,90 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
     }
 
     override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, updateStatus: (String) -> Unit, syncStatus: SyncStatus) {
-        val fFrom = File(from)
         when (srcFileOps) {
             is LocalFileOps -> {
+                val fFrom = File(from)
                 fFrom.copyTo(File(to), overwrite = true)
                 syncStatus.updateProgress(fFrom.length())
                 syncStatus.formatProgress()
             }
+            is YandexFileOps -> {
+                downloadFromYandex(action, from, to, srcFileOps, updateStatus, syncStatus)
+            }
             else -> throw CopyDirectionIsNotSupportedYet()
+        }
+    }
+
+    private fun downloadFromYandex(
+        action: String,
+        from: String,
+        to: String,
+        srcFileOps: YandexFileOps,
+        updateStatus: (String) -> Unit,
+        syncStatus: SyncStatus,
+    ) {
+        val sl = StatusListener(action, from, updateStatus, syncStatus)
+        try {
+            srcFileOps.downloadFile(from, File(to), sl::updateProgress)
+            sl.printDone()
+        } catch (e: Throwable) {
+            sl.printProgress(e)
+            Thread.sleep(2000)
+            throw e
+        }
+    }
+
+    class StatusListener(
+        val action: String,
+        val fileName: String,
+        val updateStatus: (String) -> Unit,
+        val syncStatus: SyncStatus,
+    ) {
+
+        var lastLoaded: Long = 0
+        var lastTotal: Long = 1
+        var lastUpdateTs: Long = 0
+        val totalSizeStr: String = formatFileSize(syncStatus.totalSize)
+        private val speedCalculator = SpeedCalculator()
+
+        fun updateProgress(loaded: Long, total: Long) {
+            val loadedDelta = loaded - lastLoaded
+            syncStatus.updateProgress(loadedDelta)
+            speedCalculator.addProgress(loaded)
+
+            lastLoaded = loaded
+            lastTotal = total
+            val now = System.currentTimeMillis()
+            if (now - lastUpdateTs > 250) {
+                lastUpdateTs = now
+                printProgress()
+            }
+        }
+
+        fun printDone() {
+            printProgress(null, isDone = true)
+        }
+
+        fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
+            val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
+            val dotsCount = (prc * 90).toInt()
+            var progressBar = ".".repeat(dotsCount).padEnd(90)
+
+            val prediction = speedCalculator.predict(lastTotal)
+            if (prediction != null) {
+                progressBar = prediction + progressBar.substring(prediction.length)
+            }
+
+            if (isDone) progressBar += " DONE "
+
+            val fileNameLen = 50
+            val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
+            val percentStr = "%6.2f".format(prc * 100)
+            val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
+
+            val errStr = if (err != null) " ERROR: ${err.message}" else ""
+            updateStatus("$action: $shortName $percentStr% [$speedStr/s] $progressBar$errStr")
+            syncStatus.formatProgress()
         }
     }
 

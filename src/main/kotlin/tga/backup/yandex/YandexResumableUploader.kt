@@ -94,6 +94,45 @@ class YandexResumableUploader(
         }
     }
 
+    fun downloadFile(remotePath: String, localFile: File, onProgress: ProgressCallback) {
+        // 1. Get the download link
+        val downloadUrl = getDownloadLink(remotePath)
+
+        logger.debug { "Download link received. Starting download..." }
+
+        // 2. Download the file
+        val request = Request.Builder()
+            .url(downloadUrl)
+            .get()
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw YandexResponseException("Error downloading file", response, srcFilePath = remotePath)
+            }
+
+            val body = response.body ?: throw YandexResponseException("Empty response body", response, srcFilePath = remotePath)
+            val totalBytes = body.contentLength()
+
+            localFile.parentFile?.mkdirs()
+            localFile.outputStream().use { output ->
+                body.byteStream().use { input ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    var totalRead = 0L
+
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        totalRead += bytesRead
+                        onProgress(totalRead, totalBytes)
+                    }
+                }
+            }
+        }
+
+        logger.debug { "Download completed successfully!" }
+    }
+
     // Main method
     fun uploadFile(localFile: File, remotePath: String, onProgress: ProgressCallback) {
         // 1. Get the link (or use the old one if it's still alive, but better to get a fresh one)
@@ -157,6 +196,25 @@ class YandexResumableUploader(
 
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw YandexResponseException("Error getting upload link", response, dstFilePath = path)
+            val json = gson.fromJson(response.body?.charStream(), JsonObject::class.java)
+            return json.get("href").asString
+        }
+    }
+
+    // Get URL for downloading
+    fun getDownloadLink(path: String): String {
+        val url = "https://cloud-api.yandex.net/v1/disk/resources/download".toHttpUrl().newBuilder()
+            .addQueryParameter("path", path)
+            .build()
+
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "OAuth $token")
+            .get()
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw YandexResponseException("Error getting download link", response, srcFilePath = path)
             val json = gson.fromJson(response.body?.charStream(), JsonObject::class.java)
             return json.get("href").asString
         }
