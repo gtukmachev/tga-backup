@@ -88,14 +88,6 @@ fun Array<String>.readParams(): Params {
     while (i < argsList.size) {
         val arg = argsList[i]
         
-        // Check if argument starts with '-' and is not recognized
-        if (arg.startsWith("-")) {
-            val configKey = argToConfigMap[arg]
-            if (configKey == null && !specialArgs.contains(arg)) {
-                throw UnrecognizedArgument(arg)
-            }
-        }
-        
         val configKey = argToConfigMap[arg]
         if (configKey != null) {
             if (booleanArgs.contains(arg)) {
@@ -108,6 +100,11 @@ fun Array<String>.readParams(): Params {
                     else -> cliMap[configKey] = value
                 }
                 i++
+            }
+        } else {
+            // Argument is not recognized - check if it's a special arg, otherwise throw
+            if (!specialArgs.contains(arg)) {
+                throw UnrecognizedArgument(arg)
             }
         }
         i++
