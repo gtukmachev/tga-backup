@@ -212,6 +212,10 @@ class YandexFileOps(
         }
     }
 
+    fun downloadFile(from: String, to: File, onProgress: (Long, Long) -> Unit) {
+        yandex.downloadFile(from.toYandexPath(), to, onProgress)
+    }
+
 
     class StatusListener(
         val action: String,
