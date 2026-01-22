@@ -19,8 +19,23 @@ data class DuplicateFolderGroup(
     val wastedSpace: Long get() = totalSize * (folders.size - 1)
 }
 
+data class PartialDuplicateFolderInfo(
+    val folderPath: String,
+    val duplicateFilesCount: Int,
+    val duplicateFilesSize: Long
+)
+
+data class PartialDuplicateFolderGroup(
+    val folders: List<PartialDuplicateFolderInfo>,
+    val fileGroups: List<DuplicateGroup>
+) {
+    val totalDuplicateFilesSize: Long get() = fileGroups.sumOf { it.totalSize * it.files.size }
+    val wastedSpace: Long get() = fileGroups.sumOf { it.wastedSpace }
+}
+
 data class DuplicatesResult(
     val folderGroups: List<DuplicateFolderGroup>,
+    val partialFolderGroups: List<PartialDuplicateFolderGroup>,
     val fileGroups: List<DuplicateGroup>
 )
 
@@ -85,19 +100,111 @@ fun findDuplicates(allFiles: Set<FileInfo>): DuplicatesResult {
         )
     }.sortedByDescending { it.wastedSpace }
 
-    // 3. Remove files that are part of duplicate folders from fileGroups
-    val filesInDuplicateFolders = mutableSetOf<String>()
+    // 3. Find partially duplicate folders
+    // We only consider files that are NOT in full duplicate folders
+    val filesInFullDuplicateFolders = mutableSetOf<String>()
     for (group in folderGroups) {
-        // Keep files in the FIRST folder of each group (they are not "wasted" in the context of folders)
-        // Actually, the requirement is to simplify the set. 
-        // If a folder is a duplicate, all its files in all instances are already "represented" by the folder duplicate.
         for (folderPath in group.folders) {
-            folderContent[folderPath]?.forEach { filesInDuplicateFolders.add(it.name) }
+            folderContent[folderPath]?.forEach { filesInFullDuplicateFolders.add(it.name) }
         }
     }
 
-    val filteredFileGroups = initialFileGroups.values.mapNotNull { group ->
-        val remainingFiles = group.files.filter { it.name !in filesInDuplicateFolders }
+    val remainingFileGroups = initialFileGroups.values
+        .map { group -> group.copy(files = group.files.filter { it.name !in filesInFullDuplicateFolders }) }
+        .filter { it.files.size > 1 }
+
+    // Map each duplicate file to its group
+    val fileToGroup = mutableMapOf<String, DuplicateGroup>()
+    for (group in remainingFileGroups) {
+        for (file in group.files) {
+            fileToGroup[file.name] = group
+        }
+    }
+
+    // Map each folder to the duplicate groups it contains
+    val folderToGroups = mutableMapOf<String, MutableSet<String>>() // folderPath -> set of MD5s
+    for (group in remainingFileGroups) {
+        for (file in group.files) {
+            val parent = file.name.substringBeforeLast('/', "")
+            folderToGroups.getOrPut(parent) { mutableSetOf() }.add(group.md5)
+        }
+    }
+
+    // Build connected components of folders
+    // Two folders are connected if they share at least one duplicate file group
+    val visitedFolders = mutableSetOf<String>()
+    val partialFolderGroups = mutableListOf<PartialDuplicateFolderGroup>()
+
+    for (startFolder in folderToGroups.keys) {
+        if (startFolder.isEmpty()) continue // ignore files in root for partial folder detection
+        if (startFolder in visitedFolders) continue
+
+        val componentFolders = mutableSetOf<String>()
+        val queue = mutableListOf(startFolder)
+        val componentVisitedFolders = mutableSetOf(startFolder)
+
+        while (queue.isNotEmpty()) {
+            val folder = queue.removeAt(0)
+            componentFolders.add(folder)
+
+            val md5sInFolder = folderToGroups[folder] ?: emptySet()
+            for (md5 in md5sInFolder) {
+                val group = remainingFileGroups.find { it.md5 == md5 }!!
+                for (file in group.files) {
+                    val otherFolder = file.name.substringBeforeLast('/', "")
+                    if (otherFolder.isNotEmpty() && otherFolder !in componentVisitedFolders) {
+                        componentVisitedFolders.add(otherFolder)
+                        queue.add(otherFolder)
+                    }
+                }
+            }
+        }
+
+        // Mark all folders in this component as visited globally
+        visitedFolders.addAll(componentFolders)
+
+        if (componentFolders.size > 1) {
+            // Find all file groups that are present in these folders
+            val md5sInComponent = componentFolders.flatMap { folderToGroups[it] ?: emptySet() }.toSet()
+            val groupsInComponent = remainingFileGroups.filter { it.md5 in md5sInComponent }
+
+            // Check if ALL files of these groups are within the component folders
+            val allFilesAreInComponent = groupsInComponent.all { group ->
+                group.files.all { file ->
+                    val fileFolder = file.name.substringBeforeLast('/', "")
+                    fileFolder in componentFolders
+                }
+            }
+
+            if (allFilesAreInComponent) {
+                val folderInfos = componentFolders.map { folderPath ->
+                    val filesInFolder = folderContent[folderPath]!!.filter { file ->
+                        groupsInComponent.any { g -> g.files.any { f -> f.name == file.name } }
+                    }
+                    PartialDuplicateFolderInfo(
+                        folderPath = folderPath,
+                        duplicateFilesCount = filesInFolder.size,
+                        duplicateFilesSize = filesInFolder.sumOf { it.size }
+                    )
+                }.sortedBy { it.folderPath }
+
+                partialFolderGroups.add(PartialDuplicateFolderGroup(folderInfos, groupsInComponent.sortedBy { it.md5 }))
+            }
+        }
+    }
+
+    // 4. Final filtering: remove files that are part of folderGroups or partialFolderGroups
+    val filesInHandledFolderGroups = filesInFullDuplicateFolders.toMutableSet()
+    for (group in partialFolderGroups) {
+        for (fileGroup in group.fileGroups) {
+            for (file in fileGroup.files) {
+                filesInHandledFolderGroups.add(file.name)
+            }
+        }
+    }
+
+    val finalFileGroups = initialFileGroups.values.mapNotNull { group ->
+        val remainingFiles = group.files.filter { it.name !in filesInHandledFolderGroups }
         if (remainingFiles.size > 1) {
             group.copy(files = remainingFiles)
         } else {
@@ -105,7 +212,7 @@ fun findDuplicates(allFiles: Set<FileInfo>): DuplicatesResult {
         }
     }.sortedByDescending { it.wastedSpace }
 
-    return DuplicatesResult(folderGroups, filteredFileGroups)
+    return DuplicatesResult(folderGroups, partialFolderGroups.sortedByDescending { it.wastedSpace }, finalFileGroups)
 }
 
 /**
@@ -114,6 +221,7 @@ fun findDuplicates(allFiles: Set<FileInfo>): DuplicatesResult {
 data class DuplicatesSummary(
     val totalGroups: Int,
     val totalFolderGroups: Int,
+    val totalPartialFolderGroups: Int,
     val totalDuplicateFiles: Int,
     val totalWastedSpace: Long,
     val largestGroup: DuplicateGroup?
@@ -122,12 +230,16 @@ data class DuplicatesSummary(
         fun from(result: DuplicatesResult): DuplicatesSummary {
             val fileGroups = result.fileGroups
             val folderGroups = result.folderGroups
+            val partialGroups = result.partialFolderGroups
             
             return DuplicatesSummary(
                 totalGroups = fileGroups.size,
                 totalFolderGroups = folderGroups.size,
+                totalPartialFolderGroups = partialGroups.size,
                 totalDuplicateFiles = fileGroups.sumOf { it.files.size - 1 },
-                totalWastedSpace = fileGroups.sumOf { it.wastedSpace } + folderGroups.sumOf { it.wastedSpace },
+                totalWastedSpace = fileGroups.sumOf { it.wastedSpace } + 
+                                   folderGroups.sumOf { it.wastedSpace } + 
+                                   partialGroups.sumOf { it.wastedSpace },
                 largestGroup = fileGroups.maxByOrNull { it.wastedSpace }
             )
         }

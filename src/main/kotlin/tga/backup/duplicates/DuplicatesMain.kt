@@ -72,6 +72,22 @@ fun runDuplicatesMode(params: Params) {
             }
         }
 
+        if (duplicatesResult.partialFolderGroups.isNotEmpty()) {
+            println("PARTIAL DUPLICATE FOLDERS")
+            println("-".repeat(40))
+            for ((index, group) in duplicatesResult.partialFolderGroups.withIndex()) {
+                println("Partial Folder Duplicate Group #${index + 1}")
+                println("  Unique duplicate files: ${group.fileGroups.size}")
+                println("  Total duplicate files size: ${formatFileSize(group.totalDuplicateFilesSize)}")
+                println("  Wasted space: ${formatFileSize(group.wastedSpace)}")
+                println("  Folders:")
+                for (folder in group.folders) {
+                    println("    - ${folder.folderPath} (contains ${folder.duplicateFilesCount} duplicates, total ${formatFileSize(folder.duplicateFilesSize)})")
+                }
+                println()
+            }
+        }
+
         if (duplicatesResult.fileGroups.isNotEmpty()) {
             println("DUPLICATE FILES")
             println("-".repeat(40))
@@ -95,6 +111,7 @@ fun runDuplicatesMode(params: Params) {
     println("SUMMARY")
     println("=".repeat(80))
     println("Total duplicate folder groups: ${summary.totalFolderGroups}")
+    println("Total partial duplicate folder groups: ${summary.totalPartialFolderGroups}")
     println("Total duplicate file groups: ${summary.totalGroups}")
     println("Total wasted space: ${formatFileSize(summary.totalWastedSpace)}")
     

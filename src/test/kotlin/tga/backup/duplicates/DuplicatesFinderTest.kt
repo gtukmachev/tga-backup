@@ -114,4 +114,74 @@ class DuplicatesFinderTest {
         assertThat(summary.totalGroups).isEqualTo(1)
         assertThat(summary.totalWastedSpace).isEqualTo(150) // 100 (folder) + 50 (file)
     }
+
+    @Test
+    fun `should find partial duplicate folder groups`() {
+        // Folder A
+        val a1 = FileInfo("folderA/file1.txt", false, 100).apply { setupMd5("md5_1") }
+        val a2 = FileInfo("folderA/file2.txt", false, 200).apply { setupMd5("md5_2") }
+        val uniqueA = FileInfo("folderA/uniqueA.txt", false, 50).apply { setupMd5("md5_uniqueA") }
+
+        // Folder B
+        val b1 = FileInfo("folderB/file1.txt", false, 100).apply { setupMd5("md5_1") }
+        val b3 = FileInfo("folderB/file3.txt", false, 300).apply { setupMd5("md5_3") }
+
+        // Folder C
+        val c2 = FileInfo("folderC/file2.txt", false, 200).apply { setupMd5("md5_2") }
+        val c3 = FileInfo("folderC/file3.txt", false, 300).apply { setupMd5("md5_3") }
+
+        val files = setOf(a1, a2, uniqueA, b1, b3, c2, c3)
+
+        val result = findDuplicates(files)
+
+        // All duplicate files are shared between A, B, and C.
+        // md5_1 is in A and B.
+        // md5_2 is in A and C.
+        // md5_3 is in B and C.
+        // They should form one partial duplicate group.
+        assertThat(result.folderGroups).isEmpty()
+        assertThat(result.partialFolderGroups).hasSize(1)
+        
+        val group = result.partialFolderGroups[0]
+        assertThat(group.folders.map { it.folderPath }).containsExactlyInAnyOrder("folderA", "folderB", "folderC")
+        assertThat(group.fileGroups.map { it.md5 }).containsExactlyInAnyOrder("md5_1", "md5_2", "md5_3")
+        
+        // Wasted space calculation:
+        // md5_1 (size 100, 2 copies) -> 100 wasted
+        // md5_2 (size 200, 2 copies) -> 200 wasted
+        // md5_3 (size 300, 2 copies) -> 300 wasted
+        // Total: 600
+        assertThat(group.wastedSpace).isEqualTo(600)
+        
+        // Check folder infos
+        val folderA = group.folders.find { it.folderPath == "folderA" }!!
+        assertThat(folderA.duplicateFilesCount).isEqualTo(2) // file1, file2
+        assertThat(folderA.duplicateFilesSize).isEqualTo(300)
+
+        // fileGroups should be empty because all duplicates are in the partial group
+        assertThat(result.fileGroups).isEmpty()
+    }
+
+    @Test
+    fun `should NOT form partial group if a duplicate file exists outside the group`() {
+        // Folder A
+        val a1 = FileInfo("folderA/file1.txt", false, 100).apply { setupMd5("md5_1") }
+        val aUnique = FileInfo("folderA/unique.txt", false, 50).apply { setupMd5("md5_uniqueA") }
+        
+        // Folder B
+        val b1 = FileInfo("folderB/file1.txt", false, 100).apply { setupMd5("md5_1") }
+        val bUnique = FileInfo("folderB/unique.txt", false, 60).apply { setupMd5("md5_uniqueB") }
+        
+        // File 1 outside
+        val outside1 = FileInfo("outside1.txt", false, 100).apply { setupMd5("md5_1") }
+
+        val files = setOf(a1, aUnique, b1, bUnique, outside1)
+
+        val result = findDuplicates(files)
+
+        assertThat(result.folderGroups).isEmpty()
+        assertThat(result.partialFolderGroups).isEmpty()
+        assertThat(result.fileGroups).hasSize(1)
+        assertThat(result.fileGroups[0].files.map { it.name }).containsExactlyInAnyOrder("folderA/file1.txt", "folderB/file1.txt", "outside1.txt")
+    }
 }
