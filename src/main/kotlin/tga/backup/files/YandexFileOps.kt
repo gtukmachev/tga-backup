@@ -15,12 +15,26 @@ import java.util.concurrent.atomic.AtomicReference
 class YandexFileOps(
     private val yandex: YandexResumableUploader,
     val maxPageSize: Int  = 5000,
+    val profile: String,
+    val useCache: Boolean,
     excludePatterns: List<String> = emptyList()
 ) : FileOps(filesSeparator = "/", excludePatterns) {
 
     private val logger = KotlinLogging.logger {  }
 
     override fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
+        val cacheFilePath = getCacheFilePath(profile, rootPath)
+        if (useCache) {
+            readRemoteCache(cacheFilePath)?.let { return it }
+        }
+
+        val files = scanYandex(rootPath, throwIfNotExist)
+        writeRemoteCacheIfChanged(cacheFilePath, files)
+
+        return files
+    }
+
+    private fun scanYandex(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
         print("\nLoading files tree from yandex disk:")
 
         val fullRootPath = rootPath.removePrefix("yandex://")

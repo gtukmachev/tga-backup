@@ -17,7 +17,7 @@ fun getCacheFilePath(profile: String, remoteRoot: String): String {
     return File(profileDir, "$escapedRemoteRoot-files.txt").absolutePath
 }
 
-fun writeRemoteCache(cacheFilePath: String, files: Set<FileInfo>) {
+fun writeRemoteCacheIfChanged(cacheFilePath: String, files: Set<FileInfo>) {
     val cacheFile = File(cacheFilePath)
     cacheFile.parentFile.mkdirs()
     
@@ -28,7 +28,7 @@ fun writeRemoteCache(cacheFilePath: String, files: Set<FileInfo>) {
             "${fileInfo.name}\t${fileInfo.isDirectory}\t${fileInfo.size}\t${fileInfo.md5 ?: ""}"
         }
     
-    // Optimization: only write if content differs
+    // Optimization: only write if contents differ
     if (cacheFile.exists()) {
         val existingLines = cacheFile.readLines()
         if (existingLines == newLines) {
