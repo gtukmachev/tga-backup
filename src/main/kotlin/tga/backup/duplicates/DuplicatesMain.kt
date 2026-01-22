@@ -39,36 +39,54 @@ fun runDuplicatesMode(params: Params) {
     println("Phase 2: Finding duplicates...")
     val startFind = System.currentTimeMillis()
     
-    val duplicateGroups = findDuplicates(files)
-    val summary = DuplicatesSummary.from(duplicateGroups)
+    val duplicatesResult = findDuplicates(files)
+    val summary = DuplicatesSummary.from(duplicatesResult)
     
     val findDuration = System.currentTimeMillis() - startFind
     println("Duplicate detection completed in ${findDuration}ms")
     println()
 
     // Phase 3: Display results
-    if (duplicateGroups.isEmpty()) {
-        println("No duplicate files found!")
+    if (duplicatesResult.folderGroups.isEmpty() && duplicatesResult.fileGroups.isEmpty()) {
+        println("No duplicate files or folders found!")
         println()
     } else {
-        println("Phase 3: Duplicate files found")
+        println("Phase 3: Duplicate folders and files found")
         println("=".repeat(80))
         println()
 
-        // Sort groups by wasted space (descending)
-        val sortedGroups = duplicateGroups.values.sortedByDescending { it.wastedSpace }
-
-        for ((index, group) in sortedGroups.withIndex()) {
-            println("Duplicate Group #${index + 1}")
-            println("  MD5: ${group.md5}")
-            println("  File size: ${formatFileSize(group.totalSize)}")
-            println("  Number of copies: ${group.files.size}")
-            println("  Wasted space: ${formatFileSize(group.wastedSpace)}")
-            println("  Files:")
-            for (file in group.files) {
-                println("    - ${file.name}")
+        if (duplicatesResult.folderGroups.isNotEmpty()) {
+            println("DUPLICATE FOLDERS")
+            println("-".repeat(40))
+            for ((index, group) in duplicatesResult.folderGroups.withIndex()) {
+                println("Folder Duplicate Group #${index + 1}")
+                println("  Files in folder: ${group.filesCount}")
+                println("  Total folder size: ${formatFileSize(group.totalSize)}")
+                println("  Number of copies: ${group.folders.size}")
+                println("  Wasted space: ${formatFileSize(group.wastedSpace)}")
+                println("  Folders:")
+                for (folder in group.folders) {
+                    println("    - $folder")
+                }
+                println()
             }
-            println()
+        }
+
+        if (duplicatesResult.fileGroups.isNotEmpty()) {
+            println("DUPLICATE FILES")
+            println("-".repeat(40))
+            for ((index, group) in duplicatesResult.fileGroups.withIndex()) {
+                println("File Duplicate Group #${index + 1}")
+                println("  MD5: ${group.md5}")
+                println("  File size: ${formatFileSize(group.totalSize)}")
+                println("  Number of copies: ${group.files.size}")
+                println("  Wasted space: ${formatFileSize(group.wastedSpace)}")
+                println("  Files:")
+                for (file in group.files) {
+                    println("    - ${file.name}")
+                }
+                println()
+            }
         }
     }
 
@@ -76,13 +94,13 @@ fun runDuplicatesMode(params: Params) {
     println("=".repeat(80))
     println("SUMMARY")
     println("=".repeat(80))
-    println("Total duplicate groups: ${summary.totalGroups}")
-    println("Total duplicate files: ${summary.totalDuplicateFiles}")
+    println("Total duplicate folder groups: ${summary.totalFolderGroups}")
+    println("Total duplicate file groups: ${summary.totalGroups}")
     println("Total wasted space: ${formatFileSize(summary.totalWastedSpace)}")
     
     if (summary.largestGroup != null) {
         println()
-        println("Largest duplicate group:")
+        println("Largest duplicate file group:")
         println("  MD5: ${summary.largestGroup.md5}")
         println("  Copies: ${summary.largestGroup.files.size}")
         println("  Wasted space: ${formatFileSize(summary.largestGroup.wastedSpace)}")

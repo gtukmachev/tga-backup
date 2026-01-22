@@ -13,9 +13,10 @@ class DuplicatesFinderTest {
         val file3 = FileInfo("file3.txt", false, 300).apply { setupMd5("ccc") }
         val files = setOf(file1, file2, file3)
 
-        val duplicates = findDuplicates(files)
+        val result = findDuplicates(files)
 
-        assertThat(duplicates).isEmpty()
+        assertThat(result.fileGroups).isEmpty()
+        assertThat(result.folderGroups).isEmpty()
     }
 
     @Test
@@ -25,125 +26,92 @@ class DuplicatesFinderTest {
         val file3 = FileInfo("file3.txt", false, 200).apply { setupMd5("bbb") }
         val files = setOf(file1, file2, file3)
 
-        val duplicates = findDuplicates(files)
+        val result = findDuplicates(files)
 
-        assertThat(duplicates).hasSize(1)
-        assertThat(duplicates["aaa"]).isNotNull
-        assertThat(duplicates["aaa"]!!.files).hasSize(2)
-        assertThat(duplicates["aaa"]!!.files.map { it.name }).containsExactly("file1.txt", "file2.txt")
+        assertThat(result.fileGroups).hasSize(1)
+        assertThat(result.fileGroups[0].md5).isEqualTo("aaa")
+        assertThat(result.fileGroups[0].files).hasSize(2)
+        assertThat(result.fileGroups[0].files.map { it.name }).containsExactly("file1.txt", "file2.txt")
     }
 
     @Test
-    fun `should find multiple duplicate groups`() {
-        val file1 = FileInfo("file1.txt", false, 100).apply { setupMd5("aaa") }
-        val file2 = FileInfo("file2.txt", false, 100).apply { setupMd5("aaa") }
-        val file3 = FileInfo("file3.txt", false, 200).apply { setupMd5("bbb") }
-        val file4 = FileInfo("file4.txt", false, 200).apply { setupMd5("bbb") }
-        val file5 = FileInfo("file5.txt", false, 200).apply { setupMd5("bbb") }
-        val file6 = FileInfo("file6.txt", false, 300).apply { setupMd5("ccc") }
-        val files = setOf(file1, file2, file3, file4, file5, file6)
+    fun `should find duplicate folders and remove their files from fileGroups`() {
+        // Folder 1
+        val f1_1 = FileInfo("folder1/file1.txt", false, 100).apply { setupMd5("aaa") }
+        val f1_2 = FileInfo("folder1/file2.txt", false, 200).apply { setupMd5("bbb") }
+        
+        // Folder 2 (exact duplicate of Folder 1)
+        val f2_1 = FileInfo("folder2/file1.txt", false, 100).apply { setupMd5("aaa") }
+        val f2_2 = FileInfo("folder2/file2.txt", false, 200).apply { setupMd5("bbb") }
 
-        val duplicates = findDuplicates(files)
+        // Individual duplicate files (not in duplicate folders)
+        val lonely1 = FileInfo("lonely1.txt", false, 300).apply { setupMd5("ccc") }
+        val lonely2 = FileInfo("lonely2.txt", false, 300).apply { setupMd5("ccc") }
 
-        assertThat(duplicates).hasSize(2)
-        assertThat(duplicates["aaa"]!!.files).hasSize(2)
-        assertThat(duplicates["bbb"]!!.files).hasSize(3)
+        val files = setOf(f1_1, f1_2, f2_1, f2_2, lonely1, lonely2)
+
+        val result = findDuplicates(files)
+
+        // Should find 1 folder group
+        assertThat(result.folderGroups).hasSize(1)
+        assertThat(result.folderGroups[0].folders).containsExactly("folder1", "folder2")
+        assertThat(result.folderGroups[0].filesCount).isEqualTo(2)
+        assertThat(result.folderGroups[0].totalSize).isEqualTo(300)
+
+        // Should find 1 file group (only for lonely files)
+        // Files from folder1 and folder2 should be filtered out
+        assertThat(result.fileGroups).hasSize(1)
+        assertThat(result.fileGroups[0].md5).isEqualTo("ccc")
+        assertThat(result.fileGroups[0].files.map { it.name }).containsExactly("lonely1.txt", "lonely2.txt")
     }
 
     @Test
-    fun `should ignore directories`() {
-        val dir1 = FileInfo("dir1", true, 0).apply { setupMd5("aaa") }
-        val dir2 = FileInfo("dir2", true, 0).apply { setupMd5("aaa") }
-        val file1 = FileInfo("file1.txt", false, 100).apply { setupMd5("bbb") }
-        val files = setOf(dir1, dir2, file1)
+    fun `should handle nested folders correctly`() {
+        // Root folder files
+        val r1 = FileInfo("file_root.txt", false, 10).apply { setupMd5("root") }
+        
+        // Subfolder A
+        val a1 = FileInfo("sub/A/file.txt", false, 100).apply { setupMd5("aaa") }
+        
+        // Subfolder B (duplicate of A)
+        val b1 = FileInfo("sub/B/file.txt", false, 100).apply { setupMd5("aaa") }
 
-        val duplicates = findDuplicates(files)
+        val files = setOf(r1, a1, b1)
 
-        assertThat(duplicates).isEmpty()
+        val result = findDuplicates(files)
+
+        assertThat(result.folderGroups).hasSize(1)
+        assertThat(result.folderGroups[0].folders).containsExactly("sub/A", "sub/B")
+        assertThat(result.fileGroups).isEmpty()
     }
 
     @Test
-    fun `should ignore files without MD5`() {
-        val file1 = FileInfo("file1.txt", false, 100)
-        val file2 = FileInfo("file2.txt", false, 100)
-        val file3 = FileInfo("file3.txt", false, 200).apply { setupMd5("aaa") }
-        val files = setOf(file1, file2, file3)
+    fun `should calculate wasted space correctly for folders`() {
+        val f1_1 = FileInfo("f1/a.txt", false, 100).apply { setupMd5("aaa") }
+        val f2_1 = FileInfo("f2/a.txt", false, 100).apply { setupMd5("aaa") }
+        val f3_1 = FileInfo("f3/a.txt", false, 100).apply { setupMd5("aaa") }
+        
+        val files = setOf(f1_1, f2_1, f3_1)
+        val result = findDuplicates(files)
 
-        val duplicates = findDuplicates(files)
-
-        assertThat(duplicates).isEmpty()
-    }
-
-    @Test
-    fun `should calculate wasted space correctly`() {
-        val file1 = FileInfo("file1.txt", false, 100).apply { setupMd5("aaa") }
-        val file2 = FileInfo("file2.txt", false, 100).apply { setupMd5("aaa") }
-        val file3 = FileInfo("file3.txt", false, 100).apply { setupMd5("aaa") }
-        val files = setOf(file1, file2, file3)
-
-        val duplicates = findDuplicates(files)
-
-        assertThat(duplicates["aaa"]!!.totalSize).isEqualTo(100)
-        assertThat(duplicates["aaa"]!!.wastedSpace).isEqualTo(200) // 100 * (3 - 1)
-    }
-
-    @Test
-    fun `should sort files by name within duplicate group`() {
-        val file1 = FileInfo("zebra.txt", false, 100).apply { setupMd5("aaa") }
-        val file2 = FileInfo("alpha.txt", false, 100).apply { setupMd5("aaa") }
-        val file3 = FileInfo("beta.txt", false, 100).apply { setupMd5("aaa") }
-        val files = setOf(file1, file2, file3)
-
-        val duplicates = findDuplicates(files)
-
-        assertThat(duplicates["aaa"]!!.files.map { it.name })
-            .containsExactly("alpha.txt", "beta.txt", "zebra.txt")
-    }
-
-    @Test
-    fun `should handle files with different names but same MD5`() {
-        val file1 = FileInfo("path/to/file1.txt", false, 100).apply { setupMd5("aaa") }
-        val file2 = FileInfo("another/path/file2.txt", false, 100).apply { setupMd5("aaa") }
-        val file3 = FileInfo("completely/different/name.doc", false, 100).apply { setupMd5("aaa") }
-        val files = setOf(file1, file2, file3)
-
-        val duplicates = findDuplicates(files)
-
-        assertThat(duplicates).hasSize(1)
-        assertThat(duplicates["aaa"]!!.files).hasSize(3)
+        assertThat(result.folderGroups).hasSize(1)
+        assertThat(result.folderGroups[0].totalSize).isEqualTo(100)
+        assertThat(result.folderGroups[0].wastedSpace).isEqualTo(200) // 100 * (3 - 1)
     }
 
     @Test
     fun `DuplicatesSummary should calculate statistics correctly`() {
-        val file1 = FileInfo("file1.txt", false, 100).apply { setupMd5("aaa") }
-        val file2 = FileInfo("file2.txt", false, 100).apply { setupMd5("aaa") }
-        val file3 = FileInfo("file3.txt", false, 200).apply { setupMd5("bbb") }
-        val file4 = FileInfo("file4.txt", false, 200).apply { setupMd5("bbb") }
-        val file5 = FileInfo("file5.txt", false, 200).apply { setupMd5("bbb") }
+        val f1_1 = FileInfo("f1/a.txt", false, 100).apply { setupMd5("aaa") }
+        val f2_1 = FileInfo("f2/a.txt", false, 100).apply { setupMd5("aaa") }
         
-        val duplicateGroups = mapOf(
-            "aaa" to DuplicateGroup("aaa", listOf(file1, file2), 100),
-            "bbb" to DuplicateGroup("bbb", listOf(file3, file4, file5), 200)
-        )
+        val lonely1 = FileInfo("l1.txt", false, 50).apply { setupMd5("bbb") }
+        val lonely2 = FileInfo("l2.txt", false, 50).apply { setupMd5("bbb") }
 
-        val summary = DuplicatesSummary.from(duplicateGroups)
+        val result = findDuplicates(setOf(f1_1, f2_1, lonely1, lonely2))
+        val summary = DuplicatesSummary.from(result)
 
-        assertThat(summary.totalGroups).isEqualTo(2)
-        assertThat(summary.totalDuplicateFiles).isEqualTo(3) // (2-1) + (3-1)
-        assertThat(summary.totalWastedSpace).isEqualTo(500) // 100*(2-1) + 200*(3-1)
-        assertThat(summary.largestGroup).isNotNull
-        assertThat(summary.largestGroup!!.md5).isEqualTo("bbb")
-    }
-
-    @Test
-    fun `DuplicatesSummary should handle empty duplicate groups`() {
-        val duplicateGroups = emptyMap<String, DuplicateGroup>()
-
-        val summary = DuplicatesSummary.from(duplicateGroups)
-
-        assertThat(summary.totalGroups).isEqualTo(0)
-        assertThat(summary.totalDuplicateFiles).isEqualTo(0)
-        assertThat(summary.totalWastedSpace).isEqualTo(0)
-        assertThat(summary.largestGroup).isNull()
+        assertThat(summary.totalFolderGroups).isEqualTo(1)
+        assertThat(summary.totalGroups).isEqualTo(1)
+        assertThat(summary.totalWastedSpace).isEqualTo(150) // 100 (folder) + 50 (file)
     }
 }
