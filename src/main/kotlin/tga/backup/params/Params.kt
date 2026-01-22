@@ -11,7 +11,7 @@ data class Params(
     val srcRoot: String = "",
     val dstRoot: String = "",
     val path: String = "",
-    val target: String = "src",
+    val target: String = "",
     val dryRun: Boolean = false,
     val verbose: Boolean = false,
     val devMode: Boolean = false,

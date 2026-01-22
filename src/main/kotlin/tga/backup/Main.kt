@@ -58,37 +58,14 @@ fun main(args: Array<String>) {
         logPhase("Source Scanning")
         val srcScanStart = System.currentTimeMillis()
         println("\nListing source files:")
-        val srcFiles = if (params.remoteCache && params.srcFolder.contains("://")) {
-            val cacheFilePath = getCacheFilePath(params.profile, params.srcFolder)
-            readRemoteCache(cacheFilePath) ?: srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
-        } else {
-            val files = srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
-            if (params.srcFolder.contains("://")) {
-                val cacheFilePath = getCacheFilePath(params.profile, params.srcFolder)
-                writeRemoteCache(cacheFilePath, files)
-            }
-            files
-        }
+        val srcFiles = srcFileOps.getFilesSet(params.srcFolder, throwIfNotExist = true)
         if (params.verbose) logFilesList("Source", srcFiles)
         logPhaseDuration("Source Scanning", System.currentTimeMillis() - srcScanStart)
 
         logPhase("Destination Scanning")
         val dstScanStart = System.currentTimeMillis()
         val rootDstFolder = FileInfo("", true, 10L)
-        val dstFiles = if (params.remoteCache && params.dstFolder.contains("://")) {
-            val cacheFilePath = getCacheFilePath(params.profile, params.dstFolder)
-            (readRemoteCache(cacheFilePath) ?: dstFileOps.getFilesSet(
-                params.dstFolder,
-                throwIfNotExist = false
-            )) - rootDstFolder
-        } else {
-            val files = dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false) - rootDstFolder
-            if (params.dstFolder.contains("://")) {
-                val cacheFilePath = getCacheFilePath(params.profile, params.dstFolder)
-                writeRemoteCache(cacheFilePath, files + rootDstFolder)
-            }
-            files
-        }
+        val dstFiles = dstFileOps.getFilesSet(params.dstFolder, throwIfNotExist = false) - rootDstFolder
         if (params.verbose) logFilesList("Destination", dstFiles)
         logPhaseDuration("Destination Scanning", System.currentTimeMillis() - dstScanStart)
 
