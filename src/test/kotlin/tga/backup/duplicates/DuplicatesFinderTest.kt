@@ -146,6 +146,31 @@ class DuplicatesFinderTest {
         assertThat(group.folders.map { it.folderPath }).containsExactlyInAnyOrder("folderA", "folderB", "folderC")
         assertThat(group.fileGroups.map { it.md5 }).containsExactlyInAnyOrder("md5_1", "md5_2", "md5_3")
         
+        // Check folder infos
+        val folderA = group.folders.find { it.folderPath == "folderA" }!!
+        assertThat(folderA.duplicateFilesCount).isEqualTo(2) // file1, file2
+        assertThat(folderA.duplicateFilesSize).isEqualTo(300)
+        assertThat(folderA.totalFilesCount).isEqualTo(3) // file1, file2 + uniqueA
+        assertThat(folderA.isFullDuplicate).isFalse()
+
+        val folderB = group.folders.find { it.folderPath == "folderB" }!!
+        assertThat(folderB.totalFilesCount).isEqualTo(2)
+        assertThat(folderB.isFullDuplicate).isTrue()
+
+        val folderC = group.folders.find { it.folderPath == "folderC" }!!
+        assertThat(folderC.totalFilesCount).isEqualTo(2)
+        assertThat(folderC.isFullDuplicate).isTrue()
+
+        // Check sorting: Full duplicates should be first
+        // In this case, folderB and folderC are full duplicates AND they are duplicates of each other (md5_1, md5_3 in B, md5_2, md5_3 in C? No, wait)
+        // Let's re-read:
+        // folderB: md5_1, md5_3
+        // folderC: md5_2, md5_3
+        // They are NOT duplicates of each other. So both should be ORIGINAL candidates!
+        assertThat(group.folders[0].isOriginalCandidate).isTrue()
+        assertThat(group.folders[1].isOriginalCandidate).isTrue()
+        assertThat(group.folders[2].isOriginalCandidate).isFalse()
+
         // Wasted space calculation:
         // md5_1 (size 100, 2 copies) -> 100 wasted
         // md5_2 (size 200, 2 copies) -> 200 wasted
@@ -153,13 +178,39 @@ class DuplicatesFinderTest {
         // Total: 600
         assertThat(group.wastedSpace).isEqualTo(600)
         
-        // Check folder infos
-        val folderA = group.folders.find { it.folderPath == "folderA" }!!
-        assertThat(folderA.duplicateFilesCount).isEqualTo(2) // file1, file2
-        assertThat(folderA.duplicateFilesSize).isEqualTo(300)
-
         // fileGroups should be empty because all duplicates are in the partial group
         assertThat(result.fileGroups).isEmpty()
+    }
+
+    @Test
+    fun `should identify original candidate in partial group (one vs many scenario)`() {
+        // Original folder: contains file1, file2, file3
+        val o1 = FileInfo("original/f1.txt", false, 100).apply { setupMd5("md5_1") }
+        val o2 = FileInfo("original/f2.txt", false, 200).apply { setupMd5("md5_2") }
+        val o3 = FileInfo("original/f3.txt", false, 300).apply { setupMd5("md5_3") }
+
+        // Spread folder A: contains file1, file2
+        val a1 = FileInfo("spreadA/f1.txt", false, 100).apply { setupMd5("md5_1") }
+        val a2 = FileInfo("spreadA/f2.txt", false, 200).apply { setupMd5("md5_2") }
+
+        // Spread folder B: contains file3
+        val b3 = FileInfo("spreadB/f3.txt", false, 300).apply { setupMd5("md5_3") }
+
+        val files = setOf(o1, o2, o3, a1, a2, b3)
+        val result = findDuplicates(files)
+
+        assertThat(result.partialFolderGroups).hasSize(1)
+        val group = result.partialFolderGroups[0]
+        
+        // original should be the only original candidate
+        val originalInfo = group.folders.find { it.folderPath == "original" }!!
+        assertThat(originalInfo.isOriginalCandidate).isTrue()
+        
+        val aInfo = group.folders.find { it.folderPath == "spreadA" }!!
+        assertThat(aInfo.isOriginalCandidate).isFalse() // It is full duplicate, but it's a subset of "original"
+
+        val bInfo = group.folders.find { it.folderPath == "spreadB" }!!
+        assertThat(bInfo.isOriginalCandidate).isFalse() // It is full duplicate, but it's a subset of "original"
     }
 
     @Test
