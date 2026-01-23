@@ -82,7 +82,12 @@ fun runDuplicatesMode(params: Params) {
                 println("  Wasted space: ${formatFileSize(group.wastedSpace)}")
                 println("  Folders:")
                 for (folder in group.folders) {
-                    println("    - ${folder.folderPath} (contains ${folder.duplicateFilesCount} duplicates, total ${formatFileSize(folder.duplicateFilesSize)})")
+                    val marker = when {
+                        folder.isOriginalCandidate -> " [ORIGINAL candidate]"
+                        folder.isFullDuplicate -> " [ALL DUPLICATES]"
+                        else -> ""
+                    }
+                    println("    - ${folder.folderPath} (contains ${folder.duplicateFilesCount} duplicates, total ${formatFileSize(folder.duplicateFilesSize)})$marker")
                 }
                 println()
             }

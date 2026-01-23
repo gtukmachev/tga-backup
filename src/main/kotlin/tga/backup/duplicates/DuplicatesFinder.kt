@@ -22,8 +22,12 @@ data class DuplicateFolderGroup(
 data class PartialDuplicateFolderInfo(
     val folderPath: String,
     val duplicateFilesCount: Int,
-    val duplicateFilesSize: Long
-)
+    val duplicateFilesSize: Long,
+    val totalFilesCount: Int,
+    val isOriginalCandidate: Boolean = false
+) {
+    val isFullDuplicate: Boolean get() = duplicateFilesCount == totalFilesCount
+}
 
 data class PartialDuplicateFolderGroup(
     val folders: List<PartialDuplicateFolderInfo>,
@@ -177,18 +181,54 @@ fun findDuplicates(allFiles: Set<FileInfo>): DuplicatesResult {
             }
 
             if (allFilesAreInComponent) {
-                val folderInfos = componentFolders.map { folderPath ->
-                    val filesInFolder = folderContent[folderPath]!!.filter { file ->
+                val folderInfosWithoutOriginals = componentFolders.map { folderPath ->
+                    val allFilesInFolder = folderContent[folderPath]!!
+                    val duplicateFilesInFolder = allFilesInFolder.filter { file ->
                         groupsInComponent.any { g -> g.files.any { f -> f.name == file.name } }
                     }
                     PartialDuplicateFolderInfo(
                         folderPath = folderPath,
-                        duplicateFilesCount = filesInFolder.size,
-                        duplicateFilesSize = filesInFolder.sumOf { it.size }
+                        duplicateFilesCount = duplicateFilesInFolder.size,
+                        duplicateFilesSize = duplicateFilesInFolder.sumOf { it.size },
+                        totalFilesCount = allFilesInFolder.size
                     )
-                }.sortedBy { it.folderPath }
+                }
 
-                partialFolderGroups.add(PartialDuplicateFolderGroup(folderInfos, groupsInComponent.sortedBy { it.md5 }))
+                // Identify original candidates
+                val finalFolderInfos = folderInfosWithoutOriginals.map { info ->
+                    val isOriginal = if (info.isFullDuplicate) {
+                        // A folder is an ORIGINAL candidate if:
+                        // 1. It is a full duplicate.
+                        // 2. There is no other folder in this component that is an EXACT duplicate of it.
+                        // 3. It is NOT a subset of another full duplicate folder in the same component.
+                        
+                        val thisMd5s = folderContent[info.folderPath]!!.mapNotNull { it.md5 }.toSet()
+                        
+                        val otherFullDuplicates = folderInfosWithoutOriginals
+                            .filter { it.folderPath != info.folderPath && it.isFullDuplicate }
+                        
+                        val hasExactDuplicate = otherFullDuplicates.any { other ->
+                            val otherMd5s = folderContent[other.folderPath]!!.mapNotNull { it.md5 }.toSet()
+                            thisMd5s == otherMd5s
+                        }
+
+                        val isSubsetOfAnother = otherFullDuplicates.any { other ->
+                            val otherMd5s = folderContent[other.folderPath]!!.mapNotNull { it.md5 }.toSet()
+                            otherMd5s.size > thisMd5s.size && otherMd5s.containsAll(thisMd5s)
+                        }
+
+                        !hasExactDuplicate && !isSubsetOfAnother
+                    } else {
+                        false
+                    }
+                    info.copy(isOriginalCandidate = isOriginal)
+                }.sortedWith(
+                    compareByDescending<PartialDuplicateFolderInfo> { it.isOriginalCandidate }
+                        .thenByDescending { it.isFullDuplicate }
+                        .thenBy { it.folderPath }
+                )
+
+                partialFolderGroups.add(PartialDuplicateFolderGroup(finalFolderInfos, groupsInComponent.sortedBy { it.md5 }))
             }
         }
     }
