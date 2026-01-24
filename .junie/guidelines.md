@@ -3,6 +3,10 @@
 ## ⚠️ CRITICAL WARNING
 When run the project - ALWAYS follow the safety guideline: [safe-execution-guide.md](safe-execution-guide.md)
 
+### 📜 SCRIPTING MODE
+**How to recognize:** This mode is required when the user explicitly mentions "script", uses the `[script]` tag, or asks for a specific one-off task for their file archive instead of a general feature.
+If development of scripts is required, refer to the [Scripting Mode Guidelines](scripts.md).
+
 #### Project Goals
 
 #### Main Goal
