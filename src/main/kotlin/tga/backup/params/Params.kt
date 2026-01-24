@@ -168,31 +168,6 @@ fun Array<String>.readParams(): Params {
         remoteCache = mergedConfig.getBoolean("remoteCache")
     )
 
-    // Mode-specific validation
-    when (params.mode) {
-        "backup", "sync" -> {
-            if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")
-            if (params.dstRoot.isBlank()) throw ArgumentIsMissed("-dr (--destination-root)")
-        }
-        "duplicates" -> {
-            // For duplicates mode, we need at least one root specified
-            val targetRoot = when (params.target) {
-                "src" -> params.srcRoot
-                "dst" -> params.dstRoot
-                else -> throw IllegalArgumentException("Invalid target: ${params.target}. Must be 'src' or 'dst'")
-            }
-            if (targetRoot.isBlank()) {
-                // Default to current directory
-                val defaultRoot = System.getProperty("user.dir")
-                return params.copy(
-                    srcRoot = if (params.target == "src") defaultRoot else params.srcRoot,
-                    dstRoot = if (params.target == "dst") defaultRoot else params.dstRoot
-                )
-            }
-        }
-        else -> throw IllegalArgumentException("Unknown mode: ${params.mode}. Supported modes: backup, duplicates")
-    }
-
     if (updateProfile) {
         updateProfileFile(profile, cliMap, profileConfig, defaultConfig)
     }
