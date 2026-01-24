@@ -10,6 +10,7 @@ import tga.backup.utils.ConsoleMultiThreadWorkers
 
 private val logger = KotlinLogging.logger {  }
 
+@Suppress("unused")
 class BackupScript(params: Params) : Script(params) {
 
     init {

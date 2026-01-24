@@ -7,6 +7,7 @@ import tga.backup.log.formatFileSize
 import tga.backup.params.Params
 import tga.backup.scripts.Script
 
+@Suppress("unused")
 class DuplicatesScript(params: Params) : Script(params) {
 
     private val effectiveParams: Params
