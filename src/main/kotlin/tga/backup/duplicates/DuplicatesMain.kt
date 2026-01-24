@@ -1,28 +1,16 @@
 package tga.backup.duplicates
 
-import tga.backup.files.buildFileOpsByURL
+import tga.backup.files.FileInfo
+import tga.backup.files.FileOps
 import tga.backup.log.formatFileSize
 import tga.backup.params.Params
 
-fun runDuplicatesMode(params: Params) {
+fun runDuplicatesMode(params: Params, targetFileOps: FileOps, files: Set<FileInfo>) {
     println("=".repeat(80))
     println("TGA BACKUP UTILITY - DUPLICATES MODE")
     println("=".repeat(80))
     println()
     println(params)
-    println()
-
-    // Phase 1: Scan target directory
-    println("Phase 1: Scanning target directory...")
-    val startScan = System.currentTimeMillis()
-    
-    val targetFileOps = buildFileOpsByURL(params.targetFolder, params)
-    val files = targetFileOps.getFilesSet(params.targetFolder, throwIfNotExist = true)
-    
-    val scanDuration = System.currentTimeMillis() - startScan
-    println("Scan completed in ${scanDuration}ms")
-    println("Total files found: ${files.count { !it.isDirectory }}")
-    println("Total directories found: ${files.count { it.isDirectory }}")
     println()
 
     // Report files with read errors
@@ -129,7 +117,4 @@ fun runDuplicatesMode(params: Params) {
     }
     
     println("=".repeat(80))
-
-    // Close file operations
-    targetFileOps.close()
 }

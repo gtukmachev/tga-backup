@@ -7,7 +7,7 @@ import java.io.File
 
 data class Params(
     val profile: String = "default",
-    val mode: String = "sync",
+    val mode: String = "backup",
     val srcRoot: String = "",
     val dstRoot: String = "",
     val path: String = "",
@@ -141,7 +141,7 @@ fun Array<String>.readParams(): Params {
         .withFallback(profileConfig)
         .withFallback(defaultConfig)
 
-    val mode = if (mergedConfig.hasPath("mode")) mergedConfig.getString("mode") else "sync"
+    val mode = if (mergedConfig.hasPath("mode")) mergedConfig.getString("mode") else "backup"
     val target = if (mergedConfig.hasPath("target")) mergedConfig.getString("target") else "src"
     
     // For duplicates mode, set default srcRoot to current directory if not specified
@@ -170,7 +170,7 @@ fun Array<String>.readParams(): Params {
 
     // Mode-specific validation
     when (params.mode) {
-        "sync" -> {
+        "backup", "sync" -> {
             if (params.srcRoot.isBlank()) throw ArgumentIsMissed("-sr (--source-root)")
             if (params.dstRoot.isBlank()) throw ArgumentIsMissed("-dr (--destination-root)")
         }
@@ -190,7 +190,7 @@ fun Array<String>.readParams(): Params {
                 )
             }
         }
-        else -> throw IllegalArgumentException("Unknown mode: ${params.mode}. Supported modes: sync, duplicates")
+        else -> throw IllegalArgumentException("Unknown mode: ${params.mode}. Supported modes: backup, duplicates")
     }
 
     if (updateProfile) {

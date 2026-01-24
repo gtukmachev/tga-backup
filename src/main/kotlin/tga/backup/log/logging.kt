@@ -1,5 +1,7 @@
 package tga.backup.log
 
+import tga.backup.files.FileInfo
+
 fun <T> logWrap(prefix: String, eatErrors: Boolean = false, body: () -> T): T? {
     print(prefix)
     return try {
@@ -71,6 +73,31 @@ fun formatTime(millis: Long): String {
         hours > 0 -> "${format(hours, "h")} ${format(minutes, "m")} ${format(seconds, "s")}"
         minutes > 0 -> "${format(minutes, "m")} ${format(seconds, "s")}"
         else -> format(seconds, "s")
+    }
+}
+
+private val logger = io.github.oshai.kotlinlogging.KotlinLogging.logger {  }
+
+fun logPhase(phaseName: String) {
+    val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+    logger.warn { "[$timestamp] Phase: $phaseName" }
+}
+
+fun logPhaseDuration(phaseName: String, durationMs: Long) {
+    val durationSec = durationMs / 1000.0
+    logger.warn { "Phase '$phaseName' completed in %.2f seconds".format(durationSec) }
+}
+
+fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
+    if (filesList.isEmpty()) {
+        // println("$prefix: <EMPTY>")
+    } else {
+        println("$prefix: \n")
+        val l = formatNumber(filesList.size).length
+        filesList.sorted().forEachIndexed { i, f ->
+            print("${formatNumber(i).padStart(l)}. [${formatFileSize(f.size, 6)}] ")
+            println(f.name)
+        }
     }
 }
 

@@ -18,6 +18,7 @@ fun printLogo() {
             |    $> backup [profile] -sr <source-root> -dr <destination-root> [-p <path>] <params...>
             |
             |   Parameters:
+            |      -m,  --mode             - utility mode: backup (default) or duplicates
             |      -sr, --source-root      - source root folder
             |      -dr, --destination-root - destination root folder
             |      -p,  --path             - relative path to sync (default: *)
