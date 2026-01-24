@@ -12,6 +12,11 @@ Use the rules bellow to avoid any manypulatings of real files (any data loss / m
    1. **Only** if it required for a certain test - you may use it, but use it together with remote cache `-rm`, and generatet corresponded local chache file for the case (to simulate remote file system state and response effect).
    2. **Always** add remote credential parameters with empty value when use remote file systems (to override real values from ENV variables or run-profiles): `-yu "" -yt ""`.
 
+5. **USER INTERACTION**:
+   The program may ask for user confirmation (e.g., `Continue (Y/N/m)?>`). 
+   To avoid hanging and timeouts, **ALWAYS** pipe the expected input into the command.
+   Example: `echo <input> | mvn exec:java ...` - use correct <input>, depending of certain run needs. In the most cases (when we don;t need to execute action and it's fine to stop after planning phase) - "n" is the best option. 
+
 ### PARAMS helper
 - `--dry-run`: **ALWAYS ON**.
 - `-sr` / `-dr`: Source / Destination.
