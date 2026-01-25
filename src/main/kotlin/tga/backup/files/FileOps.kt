@@ -11,6 +11,9 @@ abstract class FileOps(
     val filesSeparator: String,
     val excludePatterns: List<String> = emptyList()
 ) {
+
+    open fun generateWebLink(path: String, rootPath: String = ""): String = ""
+
     private val exclusionMatcher: ExclusionMatcher by lazy {
         ExclusionMatcher(excludePatterns)
     }

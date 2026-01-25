@@ -191,11 +191,24 @@ class YandexFileOps(
         yandex.close()
     }
 
-    override fun generateWebLink(path: String): String {
+    override fun generateWebLink(path: String, rootPath: String): String {
         val baseUrl = "https://disk.yandex.ru/client/disk"
-        val normalizedPath = if (path.startsWith("/")) path else "/$path"
 
-        val escapedPath = normalizedPath.split("/").joinToString("/") { part ->
+        val rRaw = rootPath.removePrefix("yandex://")
+        val r = rRaw.replace(Regex("[/]+$"), "")
+        val p = path.replace(Regex("^[/]+"), "")
+
+        val fullPath = when {
+            r.isEmpty() && p.isEmpty() -> "/"
+            r.isEmpty() -> if (p.startsWith("/")) p else "/$p"
+            p.isEmpty() -> if (r.startsWith("/")) r else "/$r"
+            else -> {
+                val rNorm = if (r.startsWith("/")) r else "/$r"
+                "$rNorm/$p"
+            }
+        }
+
+        val escapedPath = fullPath.split("/").joinToString("/") { part ->
             java.net.URLEncoder.encode(part, "UTF-8")
                 .replace("+", "%20")
                 .replace("%21", "!")

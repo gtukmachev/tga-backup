@@ -10,6 +10,7 @@ import tga.backup.params.Params
 class DuplicatesScript(params: Params) : Script(params) {
 
     private val effectiveParams: Params
+    private val targetRootPath: String
 
     init {
         val targetRoot = when (params.target) {
@@ -17,6 +18,7 @@ class DuplicatesScript(params: Params) : Script(params) {
             "dst" -> params.dstRoot
             else -> throw IllegalArgumentException("Invalid target: ${params.target}. Must be 'src' or 'dst'")
         }
+        targetRootPath = targetRoot
         effectiveParams = if (targetRoot.isBlank()) {
             val defaultRoot = System.getProperty("user.dir")
             params.copy(
@@ -80,8 +82,8 @@ class DuplicatesScript(params: Params) : Script(params) {
                         println("  Wasted space: ${formatFileSize(group.wastedSpace)}")
                         println("  Folders:")
                         for (folder in group.folders) {
-                            val link = targetFileOps.generateWebLink(folder)
-                            val linkStr = if (link != null) " ($link)" else ""
+                            val link = targetFileOps.generateWebLink(folder, targetRootPath)
+                            val linkStr = if (link.isNotEmpty()) " ($link)" else ""
                             println("    - $folder$linkStr")
                         }
                         println()
@@ -103,8 +105,8 @@ class DuplicatesScript(params: Params) : Script(params) {
                                 folder.isFullDuplicate -> " [ALL DUPLICATES]"
                                 else -> ""
                             }
-                            val link = targetFileOps.generateWebLink(folder.folderPath)
-                            val linkStr = if (link != null) " ($link)" else ""
+                            val link = targetFileOps.generateWebLink(folder.folderPath, targetRootPath)
+                            val linkStr = if (link.isNotEmpty()) " ($link)" else ""
                             println("    - ${folder.folderPath} (contains ${folder.duplicateFilesCount} duplicates, total ${formatFileSize(folder.duplicateFilesSize)})$linkStr$marker")
                         }
                         println()

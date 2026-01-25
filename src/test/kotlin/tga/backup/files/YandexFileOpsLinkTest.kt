@@ -30,13 +30,26 @@ class YandexFileOpsLinkTest {
     }
 
     @Test
-    fun `test generateWebLink with special characters`() {
+    fun `test generateWebLink with rootPath`() {
         val uploader = YandexResumableUploader("token", OkHttpClient())
         val fileOps = YandexFileOps(yandex = uploader, profile = "test", useCache = false)
 
-        val path = "/folder with spaces & special symbols!"
-        val link = fileOps.generateWebLink(path)
+        assertThat(fileOps.generateWebLink("file.txt", "yandex://backup/root"))
+            .isEqualTo("https://disk.yandex.ru/client/disk/backup/root/file.txt")
 
-        assertThat(link).isEqualTo("https://disk.yandex.ru/client/disk/folder%20with%20spaces%20%26%20special%20symbols!")
+        assertThat(fileOps.generateWebLink("/file.txt", "yandex://backup/root/"))
+            .isEqualTo("https://disk.yandex.ru/client/disk/backup/root/file.txt")
+
+        assertThat(fileOps.generateWebLink("folder/file.txt", "yandex://backup/"))
+            .isEqualTo("https://disk.yandex.ru/client/disk/backup/folder/file.txt")
+
+        assertThat(fileOps.generateWebLink("file.txt", ""))
+            .isEqualTo("https://disk.yandex.ru/client/disk/file.txt")
+
+        assertThat(fileOps.generateWebLink("", "yandex://backup"))
+            .isEqualTo("https://disk.yandex.ru/client/disk/backup")
+
+        assertThat(fileOps.generateWebLink("/", "/"))
+            .isEqualTo("https://disk.yandex.ru/client/disk/")
     }
 }
