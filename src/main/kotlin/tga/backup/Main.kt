@@ -19,7 +19,7 @@ fun main(args: Array<String>) {
         println("Current folder = '${File(".").canonicalFile.path}'")
 
         logPhase("Parameter Parsing & Validation")
-        val params = args.readParams()
+        val params = readParams(args)
         println(params)
 
         val script = instantiateScript(params)
@@ -33,13 +33,12 @@ fun main(args: Array<String>) {
 }
 
 private fun instantiateScript(params: Params): Script {
-    val scriptClassName = when (params.mode) {
-        "sync" -> "tga.backup.scripts.backup.BackupScript"
-        else -> {
-            val modePascal = params.mode.replaceFirstChar { it.uppercase() }
-            "tga.backup.scripts.${params.mode}.${modePascal}Script"
-        }
-    }
+    val camelCaseName = if (params.mode == "sync") "Backup" 
+    else params.mode
+        .split('-', '_')
+        .joinToString("") { it.lowercase().replaceFirstChar { char -> char.uppercase() } }
+
+    val scriptClassName = "tga.backup.scripts.$camelCaseName" + "Script"
 
     return try {
         val scriptClass = Class.forName(scriptClassName)

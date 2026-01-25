@@ -7,6 +7,12 @@ When run the project - ALWAYS follow the safety guideline: [safe-execution-guide
 **How to recognize:** This mode is required when the user explicitly mentions "script", uses the `[script]` tag, or asks for a specific one-off task for their file archive instead of a general feature.
 If development of scripts is required, refer to the [Scripting Mode Guidelines](scripts.md).
 
+**Naming Convention:**
+Script classes must be named using CamelCase, ending with the `Script` suffix (e.g., `MyNewTaskScript`).
+The corresponding `mode` parameter should be the CamelCase name converted to hyphenated or underscored lowercase (e.g., `my-new-task` or `my_new_task`).
+The `Main.kt` orchestrator automatically resolves these names to the corresponding class in the `tga.backup.scripts` package.
+Note: legacy scripts like `BackupScript` and `DuplicatesScript` are also located in this package.
+
 #### Project Goals
 
 #### Main Goal

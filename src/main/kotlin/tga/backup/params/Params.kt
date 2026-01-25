@@ -86,11 +86,11 @@ private val booleanArgs = setOf("--dry-run", "--verbose", "-dev", "-nd", "--no-d
 
 private val specialArgs = setOf("-up", "--update-profile")
 
-fun Array<String>.readParams(): Params {
-    val (profile, argsList) = if (isNotEmpty() && !get(0).startsWith("-")) {
-        get(0) to sliceArray(1 until size)
+fun readParams(args: Array<String>): Params {
+    val (profile, argsList) = if (args.isNotEmpty() && !args[0].startsWith("-")) {
+        args[0] to args.sliceArray(1 until args.size)
     } else {
-        "default" to this
+        "default" to args
     }
 
     val cliMap = mutableMapOf<String, Any>()

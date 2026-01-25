@@ -10,7 +10,7 @@ class ParamsTest {
     @Test
     fun `test readParams with short names`() {
         val args = arrayOf("-sr", "src_root", "-dr", "dst_root", "-p", "relative/path", "-t", "5")
-        val params = args.readParams()
+        val params = readParams(args)
 
         assertThat(params.srcRoot).isEqualTo("src_root")
         assertThat(params.dstRoot).isEqualTo("dst_root")
@@ -21,7 +21,7 @@ class ParamsTest {
     @Test
     fun `test readParams with long names`() {
         val args = arrayOf("--source-root", "src_root", "--destination-root", "dst_root", "--path", "relative/path", "--threads", "20")
-        val params = args.readParams()
+        val params = readParams(args)
 
         assertThat(params.srcRoot).isEqualTo("src_root")
         assertThat(params.dstRoot).isEqualTo("dst_root")
@@ -32,7 +32,7 @@ class ParamsTest {
     @Test
     fun `test readParams with default path`() {
         val args = arrayOf("-sr", "src_root", "-dr", "dst_root")
-        val params = args.readParams()
+        val params = readParams(args)
 
         assertThat(params.path).isEqualTo("*")
         assertThat(params.srcFolder).isEqualTo("src_root")
@@ -42,25 +42,25 @@ class ParamsTest {
     @Test
     fun `test readParams with no-deletion flag`() {
         val args1 = arrayOf("-sr", "src", "-dr", "dst", "-nd")
-        assertThat(args1.readParams().noDeletion).isTrue()
+        assertThat(readParams(args1).noDeletion).isTrue()
 
         val args2 = arrayOf("-sr", "src", "-dr", "dst", "--no-deletion")
-        assertThat(args2.readParams().noDeletion).isTrue()
+        assertThat(readParams(args2).noDeletion).isTrue()
 
         val args3 = arrayOf("-sr", "src", "-dr", "dst")
-        assertThat(args3.readParams().noDeletion).isFalse()
+        assertThat(readParams(args3).noDeletion).isFalse()
     }
 
     @Test
     fun `test readParams with no-overriding flag`() {
         val args1 = arrayOf("-sr", "src", "-dr", "dst", "-no")
-        assertThat(args1.readParams().noOverriding).isTrue()
+        assertThat(readParams(args1).noOverriding).isTrue()
 
         val args2 = arrayOf("-sr", "src", "-dr", "dst", "--no-overriding")
-        assertThat(args2.readParams().noOverriding).isTrue()
+        assertThat(readParams(args2).noOverriding).isTrue()
 
         val args3 = arrayOf("-sr", "src", "-dr", "dst")
-        assertThat(args3.readParams().noOverriding).isFalse()
+        assertThat(readParams(args3).noOverriding).isFalse()
     }
 
     @Test
@@ -103,7 +103,7 @@ class ParamsTest {
             // To avoid interactive prompt during test, we ensure the file doesn't exist
             if (profileFile.exists()) profileFile.delete()
             
-            args.readParams()
+            readParams(args)
             
             assertThat(profileFile).exists()
             val content = profileFile.readText()
@@ -129,7 +129,7 @@ class ParamsTest {
     fun `test unrecognized argument with single dash throws exception`() {
         val args = arrayOf("-sr", "src", "-dr", "dst", "-remote-cache")
         
-        assertThatThrownBy { args.readParams() }
+        assertThatThrownBy { readParams(args) }
             .isInstanceOf(UnrecognizedArgument::class.java)
             .hasMessageContaining("-remote-cache")
     }
@@ -138,7 +138,7 @@ class ParamsTest {
     fun `test unrecognized argument throws exception`() {
         val args = arrayOf("-sr", "src", "-dr", "dst", "--unknown-flag")
         
-        assertThatThrownBy { args.readParams() }
+        assertThatThrownBy { readParams(args) }
             .isInstanceOf(UnrecognizedArgument::class.java)
             .hasMessageContaining("--unknown-flag")
     }
@@ -147,7 +147,7 @@ class ParamsTest {
     fun `test multiple unrecognized arguments throws exception on first`() {
         val args = arrayOf("-sr", "src", "-dr", "dst", "-bad1", "-bad2")
         
-        assertThatThrownBy { args.readParams() }
+        assertThatThrownBy { readParams(args) }
             .isInstanceOf(UnrecognizedArgument::class.java)
             .hasMessageContaining("-bad1")
     }
@@ -155,9 +155,9 @@ class ParamsTest {
     @Test
     fun `test remote cache with correct flag works`() {
         val args1 = arrayOf("-sr", "src", "-dr", "dst", "-rm")
-        assertThat(args1.readParams().remoteCache).isTrue()
+        assertThat(readParams(args1).remoteCache).isTrue()
 
         val args2 = arrayOf("-sr", "src", "-dr", "dst", "--remote-cache")
-        assertThat(args2.readParams().remoteCache).isTrue()
+        assertThat(readParams(args2).remoteCache).isTrue()
     }
 }
