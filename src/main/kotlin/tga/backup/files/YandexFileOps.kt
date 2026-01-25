@@ -191,6 +191,29 @@ class YandexFileOps(
         yandex.close()
     }
 
+    override fun generateWebLink(path: String): String {
+        val baseUrl = "https://disk.yandex.ru/client/disk"
+        val normalizedPath = if (path.startsWith("/")) path else "/$path"
+
+        val escapedPath = normalizedPath.split("/").joinToString("/") { part ->
+            java.net.URLEncoder.encode(part, "UTF-8")
+                .replace("+", "%20")
+                .replace("%21", "!")
+                .replace("%27", "'")
+                .replace("%28", "(")
+                .replace("%29", ")")
+                .replace("%7E", "~")
+                // Restore Russian characters: Cyrillic block is roughly covered by %D0 and %D1 in UTF-8
+                .replace(Regex("(%D0%[89AB][0-9A-F]|%D1%8[0-9A-F])")) { match ->
+                    val bytes = match.value.split("%").filter { it.isNotEmpty() }
+                        .map { it.toInt(16).toByte() }.toByteArray()
+                    String(bytes, Charsets.UTF_8)
+                }
+        }
+
+        return "$baseUrl$escapedPath"
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 

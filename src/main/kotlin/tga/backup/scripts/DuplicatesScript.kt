@@ -80,7 +80,9 @@ class DuplicatesScript(params: Params) : Script(params) {
                         println("  Wasted space: ${formatFileSize(group.wastedSpace)}")
                         println("  Folders:")
                         for (folder in group.folders) {
-                            println("    - $folder")
+                            val link = targetFileOps.generateWebLink(folder)
+                            val linkStr = if (link != null) " ($link)" else ""
+                            println("    - $folder$linkStr")
                         }
                         println()
                     }
@@ -101,7 +103,9 @@ class DuplicatesScript(params: Params) : Script(params) {
                                 folder.isFullDuplicate -> " [ALL DUPLICATES]"
                                 else -> ""
                             }
-                            println("    - ${folder.folderPath} (contains ${folder.duplicateFilesCount} duplicates, total ${formatFileSize(folder.duplicateFilesSize)})$marker")
+                            val link = targetFileOps.generateWebLink(folder.folderPath)
+                            val linkStr = if (link != null) " ($link)" else ""
+                            println("    - ${folder.folderPath} (contains ${folder.duplicateFilesCount} duplicates, total ${formatFileSize(folder.duplicateFilesSize)})$linkStr$marker")
                         }
                         println()
                     }
