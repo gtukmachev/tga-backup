@@ -7,6 +7,18 @@ import tga.backup.log.formatFileSize
 import tga.backup.params.Params
 import java.util.*
 
+/**
+ * Cleanup script (`-m cleanup`).
+ *
+ * Removes files matching exclusion patterns and deletes resulting empty folders.
+ *
+ * **Optional params:** `-ta src|dst` (default: `src`). Uses exclusion patterns from config/CLI.
+ *
+ * **Example:**
+ * ```
+ * java -jar tga-backup.jar -m cleanup -sr /data/photos --dry-run
+ * ```
+ */
 class CleanupScript(params: Params) : Script(params) {
 
     private val effectiveParams: Params

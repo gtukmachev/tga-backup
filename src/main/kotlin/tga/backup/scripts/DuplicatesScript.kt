@@ -6,6 +6,19 @@ import tga.backup.files.loadTree
 import tga.backup.log.formatFileSize
 import tga.backup.params.Params
 
+/**
+ * Duplicate detection script (`-m duplicates`).
+ *
+ * Scans a file tree and reports duplicate files and folders by MD5 hash.
+ * Shows wasted space, groups full/partial folder duplicates, and individual file duplicates.
+ *
+ * **Optional params:** `-ta src|dst` (default: `src`). Falls back to current directory if target root is blank.
+ *
+ * **Example:**
+ * ```
+ * java -jar tga-backup.jar -m duplicates -sr /data/photos
+ * ```
+ */
 @Suppress("unused")
 class DuplicatesScript(params: Params) : Script(params) {
 

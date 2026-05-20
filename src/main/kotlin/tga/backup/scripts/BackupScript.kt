@@ -9,6 +9,19 @@ import tga.backup.utils.ConsoleMultiThreadWorkers
 
 private val logger = KotlinLogging.logger {  }
 
+/**
+ * Primary synchronization script (`-m backup` or `-m sync`).
+ *
+ * Compares source and destination file trees, then copies, overrides, deletes,
+ * moves, and renames files to make the destination match the source.
+ *
+ * **Required params:** `-sr <source>` `-dr <destination>`
+ *
+ * **Example:**
+ * ```
+ * java -jar tga-backup.jar -m sync -sr /data/photos -dr yandex://backup/photos --dry-run
+ * ```
+ */
 @Suppress("unused")
 class BackupScript(params: Params) : Script(params) {
 

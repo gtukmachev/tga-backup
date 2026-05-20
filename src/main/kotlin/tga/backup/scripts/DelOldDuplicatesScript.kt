@@ -7,6 +7,20 @@ import tga.backup.log.formatFileSize
 import tga.backup.params.Params
 import java.util.*
 
+/**
+ * Delete old duplicates script (`-m del-old-duplicates`).
+ *
+ * Finds files in SOURCE that already exist in DESTINATION (same basename + MD5),
+ * and deletes them from source. Useful for cleaning up old folders after a backup is confirmed.
+ * Also detects and removes fully emptied source folders.
+ *
+ * **Required params:** `-sr <source>` `-dr <destination>`
+ *
+ * **Example:**
+ * ```
+ * java -jar tga-backup.jar -m del-old-duplicates -sr /old-archive -dr /main-archive --dry-run
+ * ```
+ */
 class DelOldDuplicatesScript(params: Params) : Script(params) {
 
     override fun run() {
@@ -26,13 +40,14 @@ class DelOldDuplicatesScript(params: Params) : Script(params) {
             // 1. Identify duplicates
             // Map destination files by Name (basename) and MD5 for quick lookup
             // Key: basename to Set of MD5s
-            val dstMap = mutableMapOf<String, MutableSet<String>>()
+            val dstMap = mutableMapOf<String, MutableList<FileInfo>>()
             dstFiles.filter { !it.isDirectory && it.md5 != null }.forEach {
                 val basename = it.name.substringAfterLast('/')
-                dstMap.getOrPut(basename) { mutableSetOf() }.add(it.md5!!)
+                dstMap.getOrPut(basename) { mutableListOf() }.add(it)
             }
 
             val toDeleteFiles = mutableSetOf<FileInfo>()
+            val sourceToDestinationMatch = mutableMapOf<FileInfo, FileInfo>()
             val ignoredFiles = mutableSetOf<FileInfo>()
             val folders = mutableSetOf<FileInfo>()
             val filesToKeep = mutableSetOf<FileInfo>()
@@ -49,9 +64,14 @@ class DelOldDuplicatesScript(params: Params) : Script(params) {
                     continue
                 }
 
-                val isDuplicate = file.md5 != null && dstMap[basename]?.contains(file.md5) == true
-                if (isDuplicate) {
+                val matchedDst = file.md5?.let { md5 -> 
+                    val candidates = dstMap[basename]
+                    candidates?.find { it.md5 == md5 }
+                }
+                
+                if (matchedDst != null) {
                     toDeleteFiles.add(file)
+                    sourceToDestinationMatch[file] = matchedDst
                 } else {
                     filesToKeep.add(file)
                 }
@@ -112,6 +132,26 @@ class DelOldDuplicatesScript(params: Params) : Script(params) {
                 val link = srcFileOps.generateWebLink(item.name, params.srcFolder)
                 val linkStr = if (link.isNotEmpty()) " -> $link" else ""
                 println("  $type ${item.name}$size$linkStr")
+
+                if (item.isDirectory) {
+                    // For folders, find all matched files inside it
+                    val folderPrefix = if (item.name.isEmpty()) "" else "${item.name}/"
+                    val filesInFolder = sourceToDestinationMatch.keys.filter { it.name.startsWith(folderPrefix) }
+                    for (file in filesInFolder.sortedBy { it.name }) {
+                        val dstFile = sourceToDestinationMatch[file]!!
+                        val fileSize = " (${formatFileSize(file.size)})"
+                        val dstLink = dstFileOps.generateWebLink(dstFile.name, params.dstFolder)
+                        val dstLinkStr = if (dstLink.isNotEmpty()) " -> $dstLink" else ""
+                        println("  dst:   ${dstFile.name}$fileSize$dstLinkStr (for ${file.name})")
+                    }
+                } else {
+                    val dstFile = sourceToDestinationMatch[item]
+                    if (dstFile != null) {
+                        val dstLink = dstFileOps.generateWebLink(dstFile.name, params.dstFolder)
+                        val dstLinkStr = if (dstLink.isNotEmpty()) " -> $dstLink" else ""
+                        println("  dst:   ${dstFile.name}$size$dstLinkStr")
+                    }
+                }
             }
             println("-".repeat(80))
             println("Total items to delete: ${finalPlan.size}")
@@ -129,7 +169,7 @@ class DelOldDuplicatesScript(params: Params) : Script(params) {
 
             if (response.lowercase() == "y") {
                 println("Executing deletion from source...")
-                srcFileOps.deleteFiles(finalPlan.toSet(), params.srcFolder, dryRun = false)
+                srcFileOps.deleteFiles(finalPlan.toSet(), params.srcFolder, dryRun = params.dryRun, noDeletion = params.noDeletion)
                 println("Done.")
             } else {
                 println("Operation cancelled.")
