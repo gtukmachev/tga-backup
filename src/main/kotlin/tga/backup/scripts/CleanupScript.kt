@@ -16,7 +16,7 @@ import java.util.*
  *
  * **Example:**
  * ```
- * java -jar tga-backup.jar -m cleanup -sr /data/photos --dry-run
+ * java -jar tga-backup.jar -m cleanup -sr /data/photos -x "*.tmp" -x ".DS_Store" --dry-run
  * ```
  */
 class CleanupScript(params: Params) : Script(params) {

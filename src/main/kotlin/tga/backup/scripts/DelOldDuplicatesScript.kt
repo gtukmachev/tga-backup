@@ -8,11 +8,13 @@ import tga.backup.params.Params
 import java.util.*
 
 /**
- * Delete old duplicates script (`-m del-old-duplicates`).
+ * Delete old duplicates script (`-m del-old-duplicates`). **Destructive — deletes from source.**
  *
- * Finds files in SOURCE that already exist in DESTINATION (same basename + MD5),
- * and deletes them from source. Useful for cleaning up old folders after a backup is confirmed.
- * Also detects and removes fully emptied source folders.
+ * Compares **two trees** (source vs destination) and finds source files that already exist
+ * in destination (same basename + MD5). Deletes those files from source.
+ * Also compacts fully emptied source folders.
+ *
+ * Use case: "I've already backed up to destination, now clean up the old source."
  *
  * **Required params:** `-sr <source>` `-dr <destination>`
  *

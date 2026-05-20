@@ -7,10 +7,11 @@ import tga.backup.log.formatFileSize
 import tga.backup.params.Params
 
 /**
- * Duplicate detection script (`-m duplicates`).
+ * Duplicate detection script (`-m duplicates`). **Report-only, no files are modified.**
  *
- * Scans a file tree and reports duplicate files and folders by MD5 hash.
- * Shows wasted space, groups full/partial folder duplicates, and individual file duplicates.
+ * Scans a **single** file tree and finds files that are duplicated *within that same tree*
+ * (same MD5 appearing in multiple places). Prints a report with duplicate folders,
+ * partial duplicate folders, individual duplicate file groups, and wasted space.
  *
  * **Optional params:** `-ta src|dst` (default: `src`). Falls back to current directory if target root is blank.
  *
