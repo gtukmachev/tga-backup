@@ -44,7 +44,9 @@ class BackupScript(params: Params) : Script(params) {
 
             val excludedFiles = srcFiles.filter { it.readException != null }
 
-            if (actions.toAddFiles.isEmpty() && actions.toDeleteFiles.isEmpty() && actions.toOverrideFiles.isEmpty()) {
+            if (actions.toAddFiles.isEmpty() && actions.toDeleteFiles.isEmpty() && actions.toOverrideFiles.isEmpty()
+                && actions.toMoveFiles.isEmpty() && actions.toRenameFiles.isEmpty()
+                && actions.toMoveFolders.isEmpty() && actions.toRenameFolders.isEmpty()) {
                 logger.info { "The source and destination are already exactly the same. No actions required." }
                 return
             }

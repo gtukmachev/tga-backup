@@ -109,13 +109,23 @@ fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePa
         
         val addFolder = toAddFolders.find { it.name == newFolderName }
         if (addFolder != null) {
-            // Check if ALL files (recursive) in delFolder are moved to addFolder
-            val allMovedToCorrectPlace = allFilesInDelFolder.all { 
+            // Check if ALL files in delFolder are moved to addFolder
+            val addFolderPath = addFolder.name + "/"
+            val allMovedToCorrectPlace = allFilesInDelFolder.all {
                 val relativePath = it.name.substring(delFolderPath.length)
-                fileMovesAndRenames[it] == addFolder.name + "/" + relativePath
+                fileMovesAndRenames[it] == addFolderPath + relativePath
             }
 
-            if (allMovedToCorrectPlace) {
+            // Also check the reverse: ALL non-excluded files in addFolder must come from delFolder
+            // (no extra new files that would be lost if we treat this as a simple rename)
+            val allFilesInAddFolder = srcFilesFiltered.filter { it.name.startsWith(addFolderPath) && !it.isDirectory && !isExcluded(it.name) }
+            val reverseMovesMap = fileMovesAndRenames.entries.associate { (dst, src) -> src to dst.name }
+            val allAddFilesAccountedFor = allFilesInAddFolder.all {
+                val relativePath = it.name.substring(addFolderPath.length)
+                reverseMovesMap[it.name]?.let { dstName -> dstName.startsWith(delFolderPath) } == true
+            }
+
+            if (allMovedToCorrectPlace && allAddFilesAccountedFor) {
                 // It's a folder move/rename!
                 if (delFolder.name.substringAfterLast('/') == addFolder.name.substringAfterLast('/')) {
                     toMoveFolders.add(delFolder to addFolder.name)
