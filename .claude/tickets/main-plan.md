@@ -45,13 +45,14 @@ backups to/from Google Drive.
 - Wire up remote cache support (reuse `RemoteCache.kt`)
 - **Acceptance**: `GDriveFileOps.getFilesSet` returns correct `FileInfo` set for a known folder structure
 
-### Stage 03 — Google Cloud Project Setup (Browser)
-- Open browser, user signs in to Google Cloud Console
-- Create a GCP project (or select existing)
-- Enable the Google Drive API
-- Configure OAuth consent screen (External, test mode)
-- Create OAuth2 Desktop app credentials
-- Download `client_secret.json` to project directory
+### Stage 03 — Google Cloud Project Setup (Browser via Playwright MCP)
+- Use Playwright MCP tools to automate browser interaction with Google Cloud Console
+- User signs in manually, then the agent drives the UI:
+  - Create a GCP project (or select existing)
+  - Enable the Google Drive API
+  - Configure OAuth consent screen (External, test mode)
+  - Create OAuth2 Desktop app credentials
+  - Download `client_secret.json` to project directory
 - **Acceptance**: `client_secret.json` exists and contains valid OAuth2 client credentials
 
 ### Stage 04 — File Transfer (Upload & Download)
