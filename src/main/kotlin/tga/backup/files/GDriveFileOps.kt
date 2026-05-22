@@ -300,6 +300,24 @@ class GDriveFileOps(
         gdrive.close()
     }
 
+    override fun generateWebLink(path: String, rootPath: String): String {
+        val rootClean = rootPath.removePrefix("gdrive://").replace(Regex("[/]+$"), "")
+        val pathClean = path.replace(Regex("^[/]+"), "")
+
+        val fullPath = when {
+            rootClean.isEmpty() && pathClean.isEmpty() -> ""
+            rootClean.isEmpty() -> pathClean
+            pathClean.isEmpty() -> rootClean
+            else -> "$rootClean/$pathClean"
+        }
+
+        val fileId = pathToIdMap[fullPath]
+        if (fileId != null) {
+            return "https://drive.google.com/drive/folders/$fileId"
+        }
+        return "https://drive.google.com/drive/"
+    }
+
     fun getFileId(relativePath: String): String? = pathToIdMap[relativePath]
 
     fun getRootFolderId(rootPath: String): String {
