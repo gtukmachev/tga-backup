@@ -1,6 +1,6 @@
 ---
-currentStage: 03-gcp-browser-setup
-currentStagePath: .claude/tickets/stage-03-gcp-browser-setup
+currentStage: 04-file-transfer
+currentStagePath: .claude/tickets/stage-04-file-transfer
 ---
 
 # Google Drive Integration (`gdrive://`)
