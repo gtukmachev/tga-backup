@@ -6,4 +6,4 @@
 
 This project uses staged development. See the plan and current stage:
 - **Main plan:** `.claude/tickets/main-plan.md`
-- **Current stage:** @.claude/tickets/stage-00-planning/stage-00-plan.md
+- **Current stage:** @.claude/tickets/stage-01-dependencies-and-api-client/stage-01-plan.md
