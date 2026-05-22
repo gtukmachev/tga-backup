@@ -1,6 +1,6 @@
 ---
-currentStage: 02-gdrive-fileops
-currentStagePath: .claude/tickets/stage-02-gdrive-fileops
+currentStage: 03-gcp-browser-setup
+currentStagePath: .claude/tickets/stage-03-gcp-browser-setup
 ---
 
 # Google Drive Integration (`gdrive://`)

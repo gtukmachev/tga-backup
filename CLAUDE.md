@@ -6,4 +6,4 @@
 
 This project uses staged development. See the plan and current stage:
 - **Main plan:** `.claude/tickets/main-plan.md`
-- **Current stage:** @.claude/tickets/stage-02-gdrive-fileops/stage-02-plan.md
+- **Current stage:** @.claude/tickets/stage-03-gcp-browser-setup/stage-03-plan.md
