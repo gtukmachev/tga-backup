@@ -13,9 +13,10 @@ backups to/from Google Drive.
 ## Architecture Decisions
 
 - **Google Drive API v3** via official `google-api-services-drive` Java SDK
-- **Authentication**: OAuth2 with a Service Account JSON key file (simplest for CLI backup tool).
-  The path to the key file is passed via a new `-gk` / `--gdrive-key` parameter.
-  Optionally, a Shared Drive ID can be specified via `-gd` / `--gdrive-drive-id`.
+- **Authentication**: OAuth2 user credentials (Desktop app flow). On first run,
+  opens a browser for Google login; stores refresh token locally at
+  `~/.tga-backup/<profile>/gdrive-token/`. Auto-refreshes on subsequent runs.
+  User provides `client_secret.json` path via `-gc` / `--gdrive-credentials`.
 - **URL scheme**: `gdrive://path/to/folder` (mirrors `yandex://` pattern)
 - **HTTP client**: Google SDK provides its own HTTP transport; no need to reuse OkHttp
 - **Resumable uploads**: Google SDK supports resumable media uploads natively
@@ -30,9 +31,8 @@ backups to/from Google Drive.
   `google-api-client` Maven dependencies
 - Create `tga.backup.gdrive.GDriveClient` — a low-level wrapper around the Drive API
   (list files, create folder, upload, download, delete, move)
-- Implement Service Account authentication from a JSON key file
-- Write unit tests for the client (mocked or integration against a test drive)
-- **Acceptance**: Project compiles, `GDriveClient` can authenticate and list files in a test folder
+- Implement OAuth2 Desktop app authentication with token persistence
+- **Acceptance**: Project compiles, `GDriveClient` has all required methods
 
 ### Stage 02 — GDriveFileOps Implementation
 - Create `tga.backup.files.GDriveFileOps` extending `FileOps`
@@ -45,29 +45,38 @@ backups to/from Google Drive.
 - Wire up remote cache support (reuse `RemoteCache.kt`)
 - **Acceptance**: `GDriveFileOps.getFilesSet` returns correct `FileInfo` set for a known folder structure
 
-### Stage 03 — File Transfer (Upload & Download)
+### Stage 03 — Google Cloud Project Setup (Browser)
+- Open browser, user signs in to Google Cloud Console
+- Create a GCP project (or select existing)
+- Enable the Google Drive API
+- Configure OAuth consent screen (External, test mode)
+- Create OAuth2 Desktop app credentials
+- Download `client_secret.json` to project directory
+- **Acceptance**: `client_secret.json` exists and contains valid OAuth2 client credentials
+
+### Stage 04 — File Transfer (Upload & Download)
 - Implement `GDriveFileOps.copyFile` for `Local -> GDrive` (upload with progress reporting)
 - Implement `LocalFileOps.copyFile` branch for `GDrive -> Local` (download with progress)
 - Use Google SDK resumable upload for large files
 - Integrate with `SyncStatus` and progress callbacks (same pattern as Yandex)
 - **Acceptance**: Files can be uploaded to and downloaded from Google Drive with progress display
 
-### Stage 04 — Parameters & Wiring
-- Add `gdrive-key` and `gdrive-drive-id` fields to `Params`
-- Add CLI argument parsing: `-gk` / `--gdrive-key`, `-gd` / `--gdrive-drive-id`
+### Stage 05 — Parameters & Wiring
+- Add `gdriveCredentials` field to `Params`
+- Add CLI argument parsing: `-gc` / `--gdrive-credentials`
 - Update `builder.kt` to route `gdrive://` to `GDriveFileOps`
 - Update `application.conf` defaults
-- **Acceptance**: `./backup -sr /local/path -dr gdrive://backup/photos -gk /path/to/key.json --dry-run` parses correctly and creates the right FileOps
+- **Acceptance**: `./backup -sr /local/path -dr gdrive://backup/photos -gc /path/to/client_secret.json --dry-run` parses correctly and creates the right FileOps
 
-### Stage 05 — Integration Testing & Web Links
+### Stage 06 — Integration Testing & Web Links
 - Implement `generateWebLink` for Google Drive paths
-- Add integration test with dry-run against a real or simulated Google Drive
+- Run first real auth flow (browser login) using the `client_secret.json` from Stage 03
 - Test all copy directions: Local->GDrive, GDrive->Local
 - Test edge cases: empty folders, deeply nested paths, special characters in names
 - Update project documentation (guidelines, README if exists)
 - **Acceptance**: Full backup dry-run completes with `gdrive://` destination; web links work
 
-### Stage 06 — Polish & Error Handling
+### Stage 07 — Polish & Error Handling
 - Google-specific error handling (rate limiting, quota exceeded, auth failures)
 - Retry logic for transient errors (503, network timeouts)
 - Handle Google Drive-specific quirks (files with same name in same folder,
