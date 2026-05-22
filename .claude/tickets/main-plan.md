@@ -1,6 +1,6 @@
 ---
-currentStage: 04-file-transfer
-currentStagePath: .claude/tickets/stage-04-file-transfer
+currentStage: 05-params-wiring
+currentStagePath: .claude/tickets/stage-05-params-wiring
 ---
 
 # Google Drive Integration (`gdrive://`)
