@@ -1,6 +1,6 @@
 ---
-currentStage: 01-dependencies-and-api-client
-currentStagePath: .claude/tickets/stage-01-dependencies-and-api-client
+currentStage: 02-gdrive-fileops
+currentStagePath: .claude/tickets/stage-02-gdrive-fileops
 ---
 
 # Google Drive Integration (`gdrive://`)
