@@ -4,6 +4,9 @@ import com.google.api.services.drive.model.File as GDriveFile
 import io.github.oshai.kotlinlogging.KotlinLogging
 import tga.backup.gdrive.GDriveClient
 import tga.backup.gdrive.GDriveResponseException
+import tga.backup.log.formatFileSize
+import tga.backup.log.toLog
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.Phaser
@@ -101,7 +104,8 @@ class GDriveFileOps(
                             }
 
                             files.add(fileInfo)
-                            pathToIdMap[itemRelPath] = item.id
+                            val fullItemPath = if (cleanPath.isEmpty()) itemRelPath else "$cleanPath/$itemRelPath"
+                            pathToIdMap[fullItemPath] = item.id
                             printFilesSize()
 
                             if (isDir) {
@@ -164,7 +168,101 @@ class GDriveFileOps(
         updateStatus: (String) -> Unit,
         syncStatus: SyncStatus,
     ) {
-        throw CopyDirectionIsNotSupportedYet()
+        when (srcFileOps) {
+            is LocalFileOps -> uploadToGDrive(action, from, to, updateStatus, syncStatus)
+            else -> throw CopyDirectionIsNotSupportedYet()
+        }
+    }
+
+    private fun uploadToGDrive(
+        action: String,
+        from: String,
+        to: String,
+        updateStatus: (String) -> Unit,
+        syncStatus: SyncStatus,
+    ) {
+        val sl = StatusListener(action, from, updateStatus, syncStatus)
+        try {
+            val cleanTo = to.toGDrivePath()
+            val parentPath = cleanTo.substringBeforeLast("/", "")
+            val parentId = if (parentPath.isEmpty()) "root"
+                else pathToIdMap[parentPath] ?: gdrive.resolvePathToId(parentPath)
+
+            gdrive.uploadFile(File(from), parentId, sl::updateProgress)
+            sl.printDone()
+        } catch (e: Throwable) {
+            sl.printProgress(e)
+            Thread.sleep(2000)
+            throw e
+        }
+    }
+
+    fun downloadFile(from: String, toFile: File, onProgress: (Long, Long) -> Unit) {
+        val cleanPath = from.toGDrivePath()
+        val fileId = pathToIdMap[cleanPath] ?: gdrive.resolvePathToId(cleanPath)
+        val metadata = gdrive.getFileMetadata(fileId)
+        val fileSize = metadata.getSize() ?: 0L
+        toFile.outputStream().use { outputStream ->
+            gdrive.downloadFile(fileId, outputStream, fileSize, onProgress)
+        }
+    }
+
+    class StatusListener(
+        val action: String,
+        val fileName: String,
+        val updateStatus: (String) -> Unit,
+        val syncStatus: SyncStatus,
+    ) {
+        var lastLoaded: Long = 0
+        var lastTotal: Long = 1
+        var lastUpdateTs: Long = 0
+        val totalSizeStr: String = formatFileSize(syncStatus.totalSize)
+        private val speedCalculator = SpeedCalculator()
+
+        fun updateProgress(loaded: Long, total: Long) {
+            val loadedDelta = loaded - lastLoaded
+            syncStatus.updateProgress(loadedDelta)
+            speedCalculator.addProgress(loaded)
+
+            lastLoaded = loaded
+            lastTotal = total
+            val now = System.currentTimeMillis()
+            if (now - lastUpdateTs > 250) {
+                lastUpdateTs = now
+                printProgress()
+            }
+        }
+
+        fun printDone() {
+            printProgress(null, isDone = true)
+        }
+
+        fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
+            val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
+            val dotsCount = (prc * 90).toInt()
+            var progressBar = ".".repeat(dotsCount).padEnd(90)
+
+            val prediction = speedCalculator.predict(lastTotal)
+            if (prediction != null) {
+                progressBar = prediction + progressBar.substring(prediction.length)
+            }
+
+            if (isDone) progressBar += " DONE "
+
+            val fileNameLen = 50
+            val shortName = if (fileName.length > fileNameLen) ("..." + fileName.takeLast(fileNameLen - 3)) else fileName.padEnd(fileNameLen)
+            val percentStr = "%6.2f".format(prc * 100)
+            val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
+
+            val status = if (err == null) {
+                "$action $shortName [$percentStr% $speedStr/s $progressBar]"
+            } else {
+                "$action $shortName [$percentStr%] Error: ${err.toLog()}"
+            }
+            updateStatus(status)
+
+            syncStatus.formatProgress()
+        }
     }
 
     override fun deleteFileOrFolder(path: String) {

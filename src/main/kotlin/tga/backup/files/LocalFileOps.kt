@@ -84,6 +84,9 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
             is YandexFileOps -> {
                 downloadFromYandex(action, from, to, srcFileOps, updateStatus, syncStatus)
             }
+            is GDriveFileOps -> {
+                downloadFromGDrive(action, from, to, srcFileOps, updateStatus, syncStatus)
+            }
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -93,6 +96,25 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         from: String,
         to: String,
         srcFileOps: YandexFileOps,
+        updateStatus: (String) -> Unit,
+        syncStatus: SyncStatus,
+    ) {
+        val sl = StatusListener(action, from, updateStatus, syncStatus)
+        try {
+            srcFileOps.downloadFile(from, File(to), sl::updateProgress)
+            sl.printDone()
+        } catch (e: Throwable) {
+            sl.printProgress(e)
+            Thread.sleep(2000)
+            throw e
+        }
+    }
+
+    private fun downloadFromGDrive(
+        action: String,
+        from: String,
+        to: String,
+        srcFileOps: GDriveFileOps,
         updateStatus: (String) -> Unit,
         syncStatus: SyncStatus,
     ) {

@@ -1,6 +1,6 @@
 ---
-currentActivity: "stage planning"
-nextPlannedActivity: "Implement GDriveFileOps.copyFile for Local -> GDrive uploads"
+currentActivity: "Implemented upload (Local->GDrive) and download (GDrive->Local) with progress reporting"
+nextPlannedActivity: "Verify acceptance criteria and transition to Stage 05"
 ---
 
 # Stage 04 — File Transfer (Upload & Download)
