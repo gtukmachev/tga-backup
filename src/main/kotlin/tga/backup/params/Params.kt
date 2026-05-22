@@ -20,6 +20,7 @@ data class Params(
     val parallelThreads: Int = 10,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
+    val gdriveCredentials: String? = null,
     val exclude: List<String> = emptyList(),
     val remoteCache: Boolean = false,
 ) {
@@ -49,6 +50,7 @@ data class Params(
                     |   parallelThreads=$parallelThreads,
                     |   yandexUser='$yandexUser',
                     |   yandexToken='${yandexToken?.let { "***" } ?: ""}',
+                    |   gdriveCredentials='${gdriveCredentials ?: ""}',
                     |   exclude=$exclude,
                     |   remoteCache=$remoteCache
                     |)
@@ -78,6 +80,7 @@ private val argToConfigMap = mapOf(
     "-t" to "parallelThreads", "--threads" to "parallelThreads",
     "-yu" to "yandexUser",
     "-yt" to "yandexToken",
+    "-gc" to "gdriveCredentials", "--gdrive-credentials" to "gdriveCredentials",
     "-x" to "exclude", "--exclude" to "exclude",
     "-rm" to "remoteCache", "--remote-cache" to "remoteCache"
 )
@@ -164,6 +167,7 @@ fun readParams(args: Array<String>): Params {
         parallelThreads = mergedConfig.getInt("parallelThreads"),
         yandexUser = if (mergedConfig.hasPath("yandexUser")) mergedConfig.getString("yandexUser").let { if (it.isBlank()) null else it } else null,
         yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null,
+        gdriveCredentials = if (mergedConfig.hasPath("gdriveCredentials")) mergedConfig.getString("gdriveCredentials").let { if (it.isBlank()) null else it } else null,
         exclude = if (mergedConfig.hasPath("exclude")) mergedConfig.getStringList("exclude") else emptyList(),
         remoteCache = mergedConfig.getBoolean("remoteCache")
     )
