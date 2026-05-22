@@ -1,6 +1,6 @@
 ---
-currentStage: 05-params-wiring
-currentStagePath: .claude/tickets/stage-05-params-wiring
+currentStage: 06-integration-weblinks
+currentStagePath: .claude/tickets/stage-06-integration-weblinks
 ---
 
 # Google Drive Integration (`gdrive://`)
