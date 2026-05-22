@@ -1,6 +1,6 @@
 ---
-currentActivity: "stage planning"
-nextPlannedActivity: "Add Maven dependencies for Google Drive API"
+currentActivity: "All goals complete: Maven dependencies added, GDriveClient and GDriveResponseException created, project compiles, all tests pass"
+nextPlannedActivity: "Transition to Stage 02 — GDriveFileOps Implementation"
 ---
 
 # Stage 01 — Dependencies & Google Drive API Client
@@ -11,28 +11,23 @@ Create the low-level Google Drive API client that will be used by `GDriveFileOps
 ## Step-by-step execution plan
 
 1. **Add Maven dependencies** to `pom.xml`:
-   - `google-api-services-drive` (v3) — Google Drive API
-   - `google-api-client` — core Google API client
-   - `google-auth-library-oauth2-http` — Service Account auth
+   - `google-api-services-drive` v3-rev20260428-2.0.0
+   - `google-api-client` 2.8.0
+   - `google-oauth-client-jetty` 1.39.0
 
 2. **Create `tga.backup.gdrive.GDriveClient`** — low-level wrapper:
-   - Constructor: takes a path to a Service Account JSON key file + optional Shared Drive ID
-   - `authenticate()` — builds a `Drive` service instance using `GoogleCredential`
-   - `listFiles(folderId: String, pageToken: String?)` — paginated file listing
-   - `getFileMetadata(fileId: String)` — get single file/folder metadata
-   - `createFolder(name: String, parentId: String)` — create a folder
-   - `uploadFile(localFile: File, parentId: String, mimeType: String, onProgress)` — resumable upload
-   - `downloadFile(fileId: String, outputStream: OutputStream, onProgress)` — download
-   - `deleteFile(fileId: String)` — trash or permanently delete
-   - `moveFile(fileId: String, newParentId: String, newName: String?)` — move/rename
-   - `close()` — cleanup
+   - OAuth2 Desktop app authentication with token persistence
+   - `listFiles`, `getFileMetadata`, `createFolder`, `uploadFile`, `downloadFile`
+   - `deleteFile`, `moveFile`, `renameFile`, `resolvePathToId`
+   - `close()`
 
-3. **Create `tga.backup.gdrive.GDriveResponseException`** — custom exception (mirrors `YandexResponseException`)
+3. **Create `tga.backup.gdrive.GDriveResponseException`** — custom exception
 
-4. **Verify** the project compiles with `mvn compile`
+4. **Verify** compilation and tests
 
 ## Acceptance criteria
-- Project compiles successfully with new dependencies
-- `GDriveClient` class exists with all listed methods
-- Authentication via Service Account JSON key file is implemented
-- Custom exception class exists
+- [x] Project compiles successfully with new dependencies
+- [x] `GDriveClient` class exists with all required methods
+- [x] OAuth2 user credentials authentication implemented
+- [x] Custom exception class exists
+- [x] All existing tests still pass

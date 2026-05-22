@@ -42,6 +42,11 @@
         <dependency> <artifactId>gson</artifactId><groupId>com.google.code.gson</groupId><version>2.10.1</version></dependency>
         <dependency> <artifactId>config</artifactId><groupId>com.typesafe</groupId><version>1.4.3</version></dependency>
 
+        <!-- Google Drive API -->
+        <dependency> <artifactId>google-api-services-drive</artifactId><groupId>com.google.apis</groupId><version>v3-rev20260428-2.0.0</version></dependency>
+        <dependency> <artifactId>google-api-client</artifactId><groupId>com.google.api-client</groupId><version>2.8.0</version></dependency>
+        <dependency> <artifactId>google-oauth-client-jetty</artifactId><groupId>com.google.oauth-client</groupId><version>1.39.0</version></dependency>
+
         <!--  Tests      -->
         <dependency> <artifactId>kotlin-test-junit5</artifactId><groupId>org.jetbrains.kotlin</groupId><version>1.9.22</version><scope>test</scope> </dependency>
         <dependency> <artifactId>junit-jupiter-api</artifactId><groupId>org.junit.jupiter</groupId><version>${junit.version}</version><scope>test</scope> </dependency>
