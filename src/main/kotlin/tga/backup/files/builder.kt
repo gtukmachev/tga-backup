@@ -31,8 +31,10 @@ fun buildYandexClient(params: Params): YandexResumableUploader {
 }
 
 fun buildGDriveClient(params: Params): GDriveClient {
+    val home = System.getProperty("user.home")
     val credentialsPath = params.gdriveCredentials
-        ?: File(System.getProperty("user.home"), ".tga-backup/client_secret.json").absolutePath
-    val tokenStorePath = File(System.getProperty("user.home"), ".tga-backup/${params.profile}/gdrive-token").absolutePath
+        ?.replace("~", home)
+        ?: File(home, ".tga-backup/client_secret.json").absolutePath
+    val tokenStorePath = File(home, ".tga-backup/${params.profile}/gdrive-token").absolutePath
     return GDriveClient(credentialsPath, tokenStorePath)
 }

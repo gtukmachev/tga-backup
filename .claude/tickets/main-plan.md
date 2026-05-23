@@ -1,6 +1,6 @@
 ---
-currentStage: 06-integration-weblinks
-currentStagePath: .claude/tickets/stage-06-integration-weblinks
+currentStage: 07-polish-errors
+currentStagePath: .claude/tickets/stage-07-polish-errors
 ---
 
 # Google Drive Integration (`gdrive://`)
