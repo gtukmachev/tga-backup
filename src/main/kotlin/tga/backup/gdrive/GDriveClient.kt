@@ -53,8 +53,38 @@ class GDriveClient(
         return AuthorizationCodeInstalledApp(flow, receiver).authorize("user")
     }
 
-    fun listFiles(folderId: String, pageToken: String? = null, pageSize: Int = 1000): Pair<List<GDriveFile>, String?> {
-        try {
+    private val retryableCodes = setOf(403, 429, 500, 503)
+
+    private fun <T> withRetry(
+        description: String,
+        maxRetries: Int = 3,
+        onRetry: ((String) -> Unit)? = null,
+        action: () -> T,
+    ): T {
+        var lastException: GoogleJsonResponseException? = null
+        for (attempt in 0..maxRetries) {
+            try {
+                return action()
+            } catch (e: GoogleJsonResponseException) {
+                if (e.statusCode !in retryableCodes || attempt == maxRetries) {
+                    throw GDriveResponseException(description, e)
+                }
+                lastException = e
+                val delaySeconds = 1L shl attempt
+                onRetry?.invoke("Retry ${attempt + 1}/$maxRetries ($description, HTTP ${e.statusCode}, waiting ${delaySeconds}s)...")
+                Thread.sleep(delaySeconds * 1000)
+            }
+        }
+        throw GDriveResponseException(description, lastException!!)
+    }
+
+    fun listFiles(
+        folderId: String,
+        pageToken: String? = null,
+        pageSize: Int = 1000,
+        onRetry: ((String) -> Unit)? = null,
+    ): Pair<List<GDriveFile>, String?> {
+        return withRetry("Error listing files in folder '$folderId'", onRetry = onRetry) {
             val result = driveService.files().list()
                 .setQ("'$folderId' in parents and trashed = false")
                 .setPageSize(pageSize)
@@ -62,35 +92,29 @@ class GDriveClient(
                 .setFields("nextPageToken, files(id, name, mimeType, size, md5Checksum, parents)")
                 .execute()
 
-            return (result.files ?: emptyList()) to result.nextPageToken
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error listing files in folder '$folderId'", e)
+            (result.files ?: emptyList()) to result.nextPageToken
         }
     }
 
-    fun getFileMetadata(fileId: String): GDriveFile {
-        try {
-            return driveService.files().get(fileId)
+    fun getFileMetadata(fileId: String, onRetry: ((String) -> Unit)? = null): GDriveFile {
+        return withRetry("Error getting metadata for file '$fileId'", onRetry = onRetry) {
+            driveService.files().get(fileId)
                 .setFields("id, name, mimeType, size, md5Checksum, parents")
                 .execute()
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error getting metadata for file '$fileId'", e)
         }
     }
 
-    fun createFolder(name: String, parentId: String): GDriveFile {
+    fun createFolder(name: String, parentId: String, onRetry: ((String) -> Unit)? = null): GDriveFile {
         val folderMetadata = GDriveFile().apply {
             this.name = name
             this.mimeType = FOLDER_MIME_TYPE
             this.parents = listOf(parentId)
         }
 
-        try {
-            return driveService.files().create(folderMetadata)
+        return withRetry("Error creating folder '$name' in parent '$parentId'", onRetry = onRetry) {
+            driveService.files().create(folderMetadata)
                 .setFields("id, name")
                 .execute()
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error creating folder '$name' in parent '$parentId'", e)
         }
     }
 
@@ -98,6 +122,7 @@ class GDriveClient(
         localFile: File,
         parentId: String,
         onProgress: (loaded: Long, total: Long) -> Unit,
+        onRetry: ((String) -> Unit)? = null,
     ): GDriveFile {
         val fileMetadata = GDriveFile().apply {
             this.name = localFile.name
@@ -107,7 +132,7 @@ class GDriveClient(
         val mediaContent = FileContent(null, localFile)
         val totalSize = localFile.length()
 
-        try {
+        return withRetry("Error uploading file '${localFile.name}' to parent '$parentId'", onRetry = onRetry) {
             val request = driveService.files().create(fileMetadata, mediaContent)
                 .setFields("id, name, md5Checksum, size")
 
@@ -119,9 +144,7 @@ class GDriveClient(
                 }
             }
 
-            return request.execute()
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error uploading file '${localFile.name}' to parent '$parentId'", e)
+            request.execute()
         }
     }
 
@@ -130,8 +153,9 @@ class GDriveClient(
         outputStream: OutputStream,
         totalSize: Long,
         onProgress: (loaded: Long, total: Long) -> Unit,
+        onRetry: ((String) -> Unit)? = null,
     ) {
-        try {
+        withRetry("Error downloading file '$fileId'", onRetry = onRetry) {
             val request = driveService.files().get(fileId)
 
             request.mediaHttpDownloader.apply {
@@ -142,21 +166,17 @@ class GDriveClient(
             }
 
             request.executeMediaAndDownloadTo(outputStream)
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error downloading file '$fileId'", e)
         }
     }
 
-    fun deleteFile(fileId: String) {
-        try {
+    fun deleteFile(fileId: String, onRetry: ((String) -> Unit)? = null) {
+        withRetry("Error deleting file '$fileId'", onRetry = onRetry) {
             driveService.files().delete(fileId).execute()
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error deleting file '$fileId'", e)
         }
     }
 
-    fun moveFile(fileId: String, oldParentId: String, newParentId: String, newName: String? = null): GDriveFile {
-        try {
+    fun moveFile(fileId: String, oldParentId: String, newParentId: String, newName: String? = null, onRetry: ((String) -> Unit)? = null): GDriveFile {
+        return withRetry("Error moving file '$fileId'", onRetry = onRetry) {
             val request = driveService.files().update(fileId, GDriveFile().apply {
                 if (newName != null) this.name = newName
             })
@@ -164,35 +184,33 @@ class GDriveClient(
                 .setRemoveParents(oldParentId)
                 .setFields("id, name, parents")
 
-            return request.execute()
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error moving file '$fileId'", e)
+            request.execute()
         }
     }
 
-    fun renameFile(fileId: String, newName: String): GDriveFile {
-        try {
-            return driveService.files().update(fileId, GDriveFile().apply {
+    fun renameFile(fileId: String, newName: String, onRetry: ((String) -> Unit)? = null): GDriveFile {
+        return withRetry("Error renaming file '$fileId' to '$newName'", onRetry = onRetry) {
+            driveService.files().update(fileId, GDriveFile().apply {
                 this.name = newName
             })
                 .setFields("id, name")
                 .execute()
-        } catch (e: GoogleJsonResponseException) {
-            throw GDriveResponseException("Error renaming file '$fileId' to '$newName'", e)
         }
     }
 
-    fun resolvePathToId(path: String): String {
+    fun resolvePathToId(path: String, onRetry: ((String) -> Unit)? = null): String {
         if (path.isEmpty() || path == "/") return "root"
 
         val parts = path.trim('/').split('/')
         var currentId = "root"
 
         for (part in parts) {
-            val result = driveService.files().list()
-                .setQ("'$currentId' in parents and name = '$part' and trashed = false")
-                .setFields("files(id, mimeType)")
-                .execute()
+            val result = withRetry("Error resolving path segment '$part'", onRetry = onRetry) {
+                driveService.files().list()
+                    .setQ("'$currentId' in parents and name = '$part' and trashed = false")
+                    .setFields("files(id, mimeType)")
+                    .execute()
+            }
 
             val found = result.files?.firstOrNull()
                 ?: throw GDriveResponseException("Path segment '$part' not found in folder '$currentId'")
@@ -209,5 +227,12 @@ class GDriveClient(
 
     companion object {
         const val FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
+        const val GOOGLE_APPS_MIME_PREFIX = "application/vnd.google-apps."
+
+        private val DOWNLOADABLE_GOOGLE_APPS_TYPES = setOf(FOLDER_MIME_TYPE)
+
+        fun isGoogleNativeFile(mimeType: String): Boolean {
+            return mimeType.startsWith(GOOGLE_APPS_MIME_PREFIX) && mimeType !in DOWNLOADABLE_GOOGLE_APPS_TYPES
+        }
     }
 }

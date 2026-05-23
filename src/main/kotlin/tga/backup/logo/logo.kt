@@ -32,6 +32,7 @@ fun printLogo() {
             |      -dev                    - development mode
             |      -yu <yandex-user>       - yandex user name
             |      -yt <yandex-token>      - yandex token
+            |      -gc, --gdrive-credentials - path to Google Drive client_secret.json
             |      -up, --update-profile   - update profile configuration file
         """.trimMargin()
     }

@@ -90,6 +90,11 @@ class GDriveFileOps(
 
                             if (isExcluded(itemName, itemRelPath)) continue
 
+                            if (GDriveClient.isGoogleNativeFile(item.mimeType)) {
+                                logger.warn { "Skipping Google native file (${item.mimeType}): $itemRelPath" }
+                                continue
+                            }
+
                             val isDir = item.mimeType == GDriveClient.FOLDER_MIME_TYPE
                             val size = if (isDir) 10L else (item.getSize() ?: 0L)
 

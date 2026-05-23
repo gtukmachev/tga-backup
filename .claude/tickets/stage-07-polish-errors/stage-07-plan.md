@@ -1,6 +1,6 @@
 ---
-currentActivity: "stage planning"
-nextPlannedActivity: "Skip Google Docs/Sheets during scan"
+currentActivity: "All goals complete — Google native file skip, retry with backoff, help text updated"
+nextPlannedActivity: "Stage complete"
 ---
 
 # Stage 07 — Polish & Error Handling
@@ -19,7 +19,10 @@ Handle Google Drive-specific quirks and edge cases, add retry logic for transien
 2. **Retry logic for transient Google API errors**:
    - Wrap API calls in `GDriveClient` with retry-on-failure for: 403 (rate limit), 429, 500, 503
    - Exponential backoff: 1s, 2s, 4s (max 3 retries)
-   - Log each retry attempt
+   - Retry status should be displayed on the thread's console line via `updateStatus` callback
+     (e.g., `"Retry 1/3 (waiting 2s)..."`) — no file-based debug logging exists yet, and
+     raw println/logger output would corrupt the multi-thread console layout
+   - `GDriveClient` methods need an optional status callback parameter for this
    - Google's 20-thread concurrent scan can easily hit rate limits
 
 3. **Add `-gc` to help text** in `logo.kt`
