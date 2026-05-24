@@ -6,5 +6,5 @@
 
 This project uses staged development. See the plan and current stage:
 - **Main plan:** `.claude/tickets/main-plan.md`
-- **Current stage:** @.claude/tickets/stage-01-dynamic-workers/stage-01-plan.md
+- **Current stage:** @.claude/tickets/stage-03-verify-polish/stage-03-plan.md
 
