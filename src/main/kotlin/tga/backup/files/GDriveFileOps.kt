@@ -5,13 +5,13 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import tga.backup.gdrive.GDriveClient
 import tga.backup.gdrive.GDriveResponseException
 import tga.backup.log.formatFileSize
+import tga.backup.log.formatNumber
 import tga.backup.log.toLog
+import tga.backup.utils.ConsoleMultiThreadWorkers
+import tga.backup.utils.DynamicTask
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.Phaser
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 
 class GDriveFileOps(
     private val gdrive: GDriveClient,
@@ -37,22 +37,11 @@ class GDriveFileOps(
     }
 
     private fun scanGDrive(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
-        print("\nLoading files tree from Google Drive:")
+        println("\nLoading files tree from Google Drive:")
 
         val cleanPath = rootPath.removePrefix("gdrive://")
         val files = ConcurrentHashMap.newKeySet<FileInfo>()
-        val backspacesLine = "\b".repeat(12)
-        val numLen = backspacesLine.length
-        print(" " + " ".repeat(numLen))
-
-        val printLock = Any()
-        fun printFilesSize() {
-            synchronized(printLock) {
-                val filesNumberStr = "${files.size}".padEnd(numLen)
-                print(backspacesLine)
-                print(filesNumberStr)
-            }
-        }
+        val totalSize = AtomicLong(0)
 
         val rootFolderId = try {
             gdrive.resolvePathToId(cleanPath)
@@ -63,78 +52,80 @@ class GDriveFileOps(
 
         pathToIdMap[cleanPath] = rootFolderId
 
-        val executor = Executors.newFixedThreadPool(20)
-        val phaser = Phaser(1)
-        val error = AtomicReference<Throwable?>(null)
+        val workers = ConsoleMultiThreadWorkers<Unit>(20)
 
-        fun scan(folderId: String, relativePath: String) {
-            phaser.register()
-            executor.execute {
-                try {
-                    var pageToken: String? = null
-                    do {
-                        if (error.get() != null) break
-
-                        logger.debug { "Fetching folder: $relativePath (folderId: $folderId)" }
-
-                        val (items, nextToken) = try {
-                            gdrive.listFiles(folderId, pageToken)
-                        } catch (e: GDriveResponseException) {
-                            error.compareAndSet(null, e)
-                            break
-                        }
-
-                        for (item in items) {
-                            val itemName = item.name
-                            val itemRelPath = if (relativePath.isEmpty()) itemName else "$relativePath/$itemName"
-
-                            if (isExcluded(itemName, itemRelPath)) continue
-
-                            if (GDriveClient.isGoogleNativeFile(item.mimeType)) {
-                                logger.warn { "Skipping Google native file (${item.mimeType}): $itemRelPath" }
-                                continue
-                            }
-
-                            val isDir = item.mimeType == GDriveClient.FOLDER_MIME_TYPE
-                            val size = if (isDir) 10L else (item.getSize() ?: 0L)
-
-                            val fileInfo = FileInfo(
-                                name = itemRelPath,
-                                isDirectory = isDir,
-                                size = size,
-                            )
-
-                            if (!isDir) {
-                                item.md5Checksum?.let { fileInfo.setupMd5(it) }
-                            }
-
-                            files.add(fileInfo)
-                            val fullItemPath = if (cleanPath.isEmpty()) itemRelPath else "$cleanPath/$itemRelPath"
-                            pathToIdMap[fullItemPath] = item.id
-                            printFilesSize()
-
-                            if (isDir) {
-                                scan(item.id, itemRelPath)
-                            }
-                        }
-
-                        pageToken = nextToken
-                    } while (pageToken != null)
-                } catch (e: Throwable) {
-                    error.compareAndSet(null, e)
-                } finally {
-                    phaser.arriveAndDeregister()
-                }
-            }
+        fun updateGlobalLine(updateGlobalStatus: (String) -> Unit) {
+            val count = files.size
+            val size = totalSize.get()
+            updateGlobalStatus("Scanning GDrive: ${formatNumber(count.toLong())} files [${formatFileSize(size)}]")
         }
 
-        scan(rootFolderId, "")
-        phaser.arriveAndAwaitAdvance()
-        executor.shutdown()
-        executor.awaitTermination(1, TimeUnit.MINUTES)
+        fun scanFolder(
+            folderId: String,
+            relativePath: String,
+            updateStatus: (String) -> Unit,
+            updateGlobalStatus: (String) -> Unit,
+            submitChild: (DynamicTask<Unit>) -> Unit
+        ) {
+            var pageToken: String? = null
+            do {
+                val shortPath = relativePath.ifEmpty { "/" }
+                updateStatus("Fetching: $shortPath")
+                logger.debug { "Fetching folder: $relativePath (folderId: $folderId)" }
 
-        error.get()?.let { throw it }
-        println(" ...done")
+                val (items, nextToken) = gdrive.listFiles(folderId, pageToken)
+
+                for (item in items) {
+                    val itemName = item.name
+                    val itemRelPath = if (relativePath.isEmpty()) itemName else "$relativePath/$itemName"
+
+                    if (isExcluded(itemName, itemRelPath)) continue
+
+                    if (GDriveClient.isGoogleNativeFile(item.mimeType)) {
+                        logger.warn { "Skipping Google native file (${item.mimeType}): $itemRelPath" }
+                        continue
+                    }
+
+                    val isDir = item.mimeType == GDriveClient.FOLDER_MIME_TYPE
+                    val size = if (isDir) 10L else (item.getSize() ?: 0L)
+
+                    val fileInfo = FileInfo(
+                        name = itemRelPath,
+                        isDirectory = isDir,
+                        size = size,
+                    )
+
+                    if (!isDir) {
+                        item.md5Checksum?.let { fileInfo.setupMd5(it) }
+                    }
+
+                    files.add(fileInfo)
+                    totalSize.addAndGet(size)
+                    val fullItemPath = if (cleanPath.isEmpty()) itemRelPath else "$cleanPath/$itemRelPath"
+                    pathToIdMap[fullItemPath] = item.id
+                    updateGlobalLine(updateGlobalStatus)
+
+                    if (isDir) {
+                        submitChild(DynamicTask { childStatus, childGlobal, childSubmit ->
+                            scanFolder(item.id, itemRelPath, childStatus, childGlobal, childSubmit)
+                        })
+                    }
+                }
+
+                pageToken = nextToken
+            } while (pageToken != null)
+
+            updateStatus("")
+        }
+
+        workers.submitDynamic { updateStatus, updateGlobalStatus, submitChild ->
+            scanFolder(rootFolderId, "", updateStatus, updateGlobalStatus, submitChild)
+        }
+
+        workers.awaitDynamic()
+        workers.shutdown()
+
+        println("...done\n")
 
         return files
     }
