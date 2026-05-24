@@ -1,6 +1,6 @@
 ---
-currentStage: 01-core-implementation
-currentStagePath: .staged-dev/parallel-deletion/stage-01-core-implementation
+currentStage: 02-tests
+currentStagePath: .staged-dev/parallel-deletion/stage-02-tests
 codeReviewTool: none
 ---
 
@@ -30,34 +30,11 @@ being processed.
 
 ## Stages
 
-### Stage 01 — Core implementation in FileOps
+### Stage 01 — Core implementation + BackupScript integration ✅
 
-**Goals:**
-- Implement the new `deleteFiles` method in `FileOps` that uses `ConsoleMultiThreadWorkers`.
-- Phase 1: delete files in parallel with progress reporting.
-- Phase 2: delete folders level-by-level (deepest first), each level in parallel.
-- Global status line shows: deleted files count + size, deleted folders count.
-- The method signature changes to accept a `ConsoleMultiThreadWorkers` parameter (like `copyFiles`).
+Completed: parallel `deleteFiles` in `FileOps` + `BackupScript.runDeleting()` updated.
 
-**Acceptance criteria:**
-- `deleteFiles` uses workers for parallelism.
-- Leaf-safety invariant is preserved (folders deleted only after children).
-- Global status line updates during deletion.
-- Compiles and existing tests pass.
-
-### Stage 02 — Update BackupScript and callers
-
-**Goals:**
-- Update `BackupScript.runDeleting()` to create and pass a `ConsoleMultiThreadWorkers` instance.
-- Pass `params.parallelThreads` to the workers.
-- Ensure the console output formatting is clean (blank lines for worker area, etc.).
-
-**Acceptance criteria:**
-- Deletion uses parallel workers when run from BackupScript.
-- Console output is well-formatted (no garbled lines).
-- `--dry-run` still works (no actual deletions).
-
-### Stage 03 — Tests
+### Stage 02 — Tests
 
 **Goals:**
 - Write unit tests for the new deletion logic:
