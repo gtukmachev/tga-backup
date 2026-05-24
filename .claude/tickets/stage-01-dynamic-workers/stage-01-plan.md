@@ -1,6 +1,6 @@
 ---
-currentActivity: "stage planning"
-nextPlannedActivity: "Implement submitDynamic and awaitDynamic in ConsoleMultiThreadWorkers"
+currentActivity: "Stage 01 complete — submitDynamic/awaitDynamic implemented and tested"
+nextPlannedActivity: "Stage 02 — refactor YandexFileOps.scanYandex()"
 ---
 
 # Stage 01 — Extend ConsoleMultiThreadWorkers with Dynamic Task Support
