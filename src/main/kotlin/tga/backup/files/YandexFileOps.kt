@@ -3,14 +3,15 @@ package tga.backup.files
 import com.google.gson.JsonObject
 import io.github.oshai.kotlinlogging.KotlinLogging
 import tga.backup.log.formatFileSize
+import tga.backup.log.formatNumber
 import tga.backup.log.toLog
+import tga.backup.utils.ConsoleMultiThreadWorkers
+import tga.backup.utils.DynamicTask
 import tga.backup.yandex.YandexResponseException
 import tga.backup.yandex.YandexResumableUploader
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.Phaser
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 
 class YandexFileOps(
     private val yandex: YandexResumableUploader,
@@ -35,103 +36,99 @@ class YandexFileOps(
     }
 
     private fun scanYandex(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
-        print("\nLoading files tree from yandex disk:")
+        println("\nLoading files tree from yandex disk:")
 
         val fullRootPath = rootPath.removePrefix("yandex://")
         val fullRootPathPrefix = "/$fullRootPath"
         val files = ConcurrentHashMap.newKeySet<FileInfo>()
-        val backspacesLine = "\b".repeat(12)
-        val numLen = backspacesLine.length
-        print(" " + " ".repeat(numLen))
+        val totalSize = AtomicLong(0)
 
-        val printLock = Any()
-        fun printFilesSize() {
-            synchronized(printLock) {
-                val filesNumberStr = "${files.size}".padEnd(numLen)
-                print(backspacesLine)
-                print(filesNumberStr)
-            }
+        val workers = ConsoleMultiThreadWorkers<Unit>(20)
+
+        fun updateGlobalLine(updateGlobalStatus: (String) -> Unit) {
+            val count = files.size
+            val size = totalSize.get()
+            updateGlobalStatus("Scanning Yandex: ${formatNumber(count.toLong())} files [${formatFileSize(size)}]")
         }
 
-        val executor = Executors.newFixedThreadPool(20)
-        val phaser = Phaser(1)
-        val error = AtomicReference<Throwable?>(null)
+        fun scanFolder(
+            path: String,
+            updateStatus: (String) -> Unit,
+            updateGlobalStatus: (String) -> Unit,
+            submitChild: (DynamicTask<Unit>) -> Unit
+        ) {
+            var offset = 0
+            while (true) {
+                val shortPath = path.removePrefix(fullRootPath).ifEmpty { "/" }
+                updateStatus("Fetching: $shortPath" + if (offset > 0) " (offset: $offset)" else "")
+                logger.debug { "Fetching folder metadata: $path (offset: $offset)" }
 
-        fun scan(path: String) {
-            phaser.register()
-            executor.execute {
-                try {
-                    var offset = 0
-                    while (error.get() == null) {
-                        logger.debug { "Fetching folder metadata: $path (offset: $offset)" }
-
-                        val resource = try {
-                            yandex.getResources(path, maxPageSize, offset)
-                        } catch (e: YandexResponseException) {
-                            if (path == fullRootPath && e.code == 404) {
-                                if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $path", e)
-                                return@execute
-                            }
-                            if (e.code != 404) error.compareAndSet(null, e)
-                            null
-                        }
-
-                        if (resource == null) break
-
-                        if (offset == 0) {
-                            val fileInfo = resource.toFileInfo(fullRootPathPrefix)
-                            if (fileInfo.name.isNotEmpty()) {
-                                files.add(fileInfo)
-                                printFilesSize()
-                            }
-                        }
-
-                        val embedded = resource.getAsJsonObject("_embedded")
-                        val itemsArray = embedded?.getAsJsonArray("items")
-                        val items = mutableListOf<JsonObject>()
-                        itemsArray?.forEach { items.add(it.asJsonObject) }
-                        
-                        val total = embedded?.get("total")?.asInt ?: 0
-
-                        items.forEach { item ->
-                            val name = item.get("name").asString
-                            val itemPath = item.get("path").asString.removePrefix("disk:")
-                            val fullPath = itemPath.removePrefix(fullRootPathPrefix).removePrefix("/")
-                            
-                            if (isExcluded(name, fullPath)) {
-                                return@forEach
-                            }
-
-                            val type = item.get("type").asString
-                            if (type == "dir") {
-                                scan(itemPath)
-                            } else {
-                                files.add(item.toFileInfo(fullRootPathPrefix))
-                                printFilesSize()
-                            }
-                        }
-
-                        val itemsCount = items.size
-                        if (itemsCount < maxPageSize || (offset + itemsCount).toLong() >= total.toLong()) break
-                        offset += itemsCount
-                    }
+                val resource = try {
+                    yandex.getResources(path, maxPageSize, offset)
                 } catch (e: YandexResponseException) {
-                    if (e.code != 404) error.compareAndSet(null, e)
-                } catch (e: Throwable) {
-                    error.compareAndSet(null, e)
-                } finally {
-                    phaser.arriveAndDeregister()
+                    if (path == fullRootPath && e.code == 404) {
+                        if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $path", e)
+                        return
+                    }
+                    if (e.code != 404) throw e
+                    null
                 }
+
+                if (resource == null) break
+
+                if (offset == 0) {
+                    val fileInfo = resource.toFileInfo(fullRootPathPrefix)
+                    if (fileInfo.name.isNotEmpty()) {
+                        files.add(fileInfo)
+                        updateGlobalLine(updateGlobalStatus)
+                    }
+                }
+
+                val embedded = resource.getAsJsonObject("_embedded")
+                val itemsArray = embedded?.getAsJsonArray("items")
+                val items = mutableListOf<JsonObject>()
+                itemsArray?.forEach { items.add(it.asJsonObject) }
+
+                val total = embedded?.get("total")?.asInt ?: 0
+
+                items.forEach { item ->
+                    val name = item.get("name").asString
+                    val itemPath = item.get("path").asString.removePrefix("disk:")
+                    val fullPath = itemPath.removePrefix(fullRootPathPrefix).removePrefix("/")
+
+                    if (isExcluded(name, fullPath)) {
+                        return@forEach
+                    }
+
+                    val type = item.get("type").asString
+                    if (type == "dir") {
+                        submitChild(DynamicTask { childStatus, childGlobal, childSubmit ->
+                            scanFolder(itemPath, childStatus, childGlobal, childSubmit)
+                        })
+                    } else {
+                        val fileInfo = item.toFileInfo(fullRootPathPrefix)
+                        files.add(fileInfo)
+                        totalSize.addAndGet(fileInfo.size)
+                        updateGlobalLine(updateGlobalStatus)
+                    }
+                }
+
+                val itemsCount = items.size
+                if (itemsCount < maxPageSize || (offset + itemsCount).toLong() >= total.toLong()) break
+                offset += itemsCount
             }
+
+            updateStatus("")
         }
 
-        scan(fullRootPath)
-        phaser.arriveAndAwaitAdvance()
-        executor.shutdown()
-        executor.awaitTermination(1, java.util.concurrent.TimeUnit.MINUTES)
+        workers.submitDynamic { updateStatus, updateGlobalStatus, submitChild ->
+            scanFolder(fullRootPath, updateStatus, updateGlobalStatus, submitChild)
+        }
 
-        error.get()?.let { throw it }
-        println(" ...done")
+        workers.awaitDynamic()
+        workers.shutdown()
+
+        println("...done\n")
 
         return files
     }
