@@ -2,6 +2,7 @@
 currentStage: (COMPLETE)
 currentStagePath: .staged-dev/parallel-deletion/stage-03-backend-verification
 codeReviewTool: none
+branch: feature/parallel-deletion
 ---
 
 # Parallel Deletion Phase
