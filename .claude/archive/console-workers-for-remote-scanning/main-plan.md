@@ -1,6 +1,7 @@
 ---
 currentStage: 04-gdrive-refactor (COMPLETE)
 currentStagePath: .claude/tickets/stage-04-gdrive-refactor
+branch: feature/yandex-scan-console-workers
 ---
 
 # Refactor Yandex Scanning to Use ConsoleMultiThreadWorkers
