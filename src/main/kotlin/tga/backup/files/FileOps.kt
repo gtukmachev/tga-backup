@@ -1,10 +1,12 @@
 package tga.backup.files
 
 import tga.backup.log.formatFileSize
+import tga.backup.log.formatNumber
 import tga.backup.log.formatTime
 import tga.backup.log.logWrap
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 abstract class FileOps(
@@ -63,9 +65,78 @@ abstract class FileOps(
         return futures.map { it.get() }
     }
 
-    fun deleteFiles(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean, noDeletion: Boolean = false): List<Result<Unit>> {
+    fun deleteFiles(
+        filesList: Set<FileInfo>,
+        dstFolder: String,
+        dryRun: Boolean,
+        noDeletion: Boolean = false,
+        workers: ConsoleMultiThreadWorkers<Unit>? = null
+    ): List<Result<Unit>> {
         if (noDeletion) return emptyList()
+        if (filesList.isEmpty()) return emptyList()
 
+        if (workers == null) {
+            return deleteFilesSequential(filesList, dstFolder, dryRun)
+        }
+
+        val files = filesList.filter { !it.isDirectory }
+        val folders = filesList.filter { it.isDirectory }
+
+        val deletedFileCount = AtomicInteger(0)
+        val deletedFileSize = AtomicLong(0)
+        val deletedFolderCount = AtomicInteger(0)
+        val totalFiles = files.size
+        val totalFolders = folders.size
+
+        fun updateGlobal() {
+            val fc = deletedFileCount.get()
+            val fs = deletedFileSize.get()
+            val dc = deletedFolderCount.get()
+            workers.outputGlobalStatus(
+                "Deleting: ${formatNumber(fc)}/${formatNumber(totalFiles)} files (${formatFileSize(fs)}) | ${formatNumber(dc)}/${formatNumber(totalFolders)} folders"
+            )
+        }
+
+        val results = mutableListOf<Result<Unit>>()
+
+        // Phase 1: delete files in parallel
+        val fileFutures = files.map { fileInfo ->
+            val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
+            workers.submit { updateStatus, _ ->
+                updateStatus("deleting file: $dstPath")
+                if (!dryRun) deleteFileOrFolder(dstPath)
+                deletedFileCount.incrementAndGet()
+                deletedFileSize.addAndGet(fileInfo.size)
+                updateGlobal()
+                updateStatus("")
+            }
+        }
+        fileFutures.forEach { results.add(it.get()) }
+
+        // Phase 2: delete folders level by level (deepest first)
+        val foldersByDepth = folders
+            .groupBy { it.name.count { ch -> ch == filesSeparator[0] } }
+            .toSortedMap(compareByDescending { it })
+
+        for ((_, levelFolders) in foldersByDepth) {
+            val levelFutures = levelFolders.map { fileInfo ->
+                val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
+                workers.submit { updateStatus, _ ->
+                    updateStatus("deleting folder: $dstPath")
+                    if (!dryRun) deleteFileOrFolder(dstPath)
+                    deletedFolderCount.incrementAndGet()
+                    updateGlobal()
+                    updateStatus("")
+                }
+            }
+            levelFutures.forEach { results.add(it.get()) }
+        }
+
+        workers.waitForCompletion()
+        return results
+    }
+
+    private fun deleteFilesSequential(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean): List<Result<Unit>> {
         val results = mutableListOf<Result<Unit>>()
         val sortedFilesList = filesList.sortedDescending()
         for (fileInfo in sortedFilesList) {

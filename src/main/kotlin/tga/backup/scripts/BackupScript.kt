@@ -192,11 +192,9 @@ class BackupScript(params: Params) : Script(params) {
         }
 
         println("\nDeleting:....")
+        val workers = ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
         try {
-            return if (toDelete.isNotEmpty())
-                dstFileOps.deleteFiles(toDelete, params.dstFolder, params.dryRun, params.noDeletion)
-            else
-                emptyList()
+            return dstFileOps.deleteFiles(toDelete, params.dstFolder, params.dryRun, params.noDeletion, workers)
         } finally {
             println(".... Deleting is finished\n")
         }
