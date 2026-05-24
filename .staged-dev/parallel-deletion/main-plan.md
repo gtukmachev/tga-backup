@@ -1,6 +1,6 @@
 ---
-currentStage: 02-tests
-currentStagePath: .staged-dev/parallel-deletion/stage-02-tests
+currentStage: (COMPLETE)
+currentStagePath: .staged-dev/parallel-deletion/stage-03-backend-verification
 codeReviewTool: none
 ---
 
