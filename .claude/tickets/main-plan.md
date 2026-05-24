@@ -1,6 +1,6 @@
 ---
-currentStage: 03-verify-polish (COMPLETE)
-currentStagePath: .claude/tickets/stage-03-verify-polish
+currentStage: 04-gdrive-refactor
+currentStagePath: .claude/tickets/stage-04-gdrive-refactor
 ---
 
 # Refactor Yandex Scanning to Use ConsoleMultiThreadWorkers
@@ -38,8 +38,15 @@ progress (file count + total size).
 - **Acceptance:** builds cleanly; scanning logic is functionally identical; console output 
   shows per-thread folder paths and global file count
 
-### Stage 03 — Verify and polish
+### Stage 03 — Verify and polish (DONE)
 - Build the project and run all tests
 - Dry-run with safe test paths to verify console output looks correct
 - Clean up any unused imports or dead code from the old approach
 - **Acceptance:** `mvn clean test` passes; dry-run produces clean multi-line output
+
+### Stage 04 — Apply the same refactoring to GDriveFileOps
+- `GDriveFileOps.scanGDrive()` has the identical ad-hoc pattern (Executor+Phaser+printLock)
+- Refactor to use `ConsoleMultiThreadWorkers.submitDynamic()` just like Yandex
+- Global status: file count + total size; thread lines: current folder path
+- GDrive has an extra concern: `pathToIdMap` must be populated during scan (thread-safe via ConcurrentHashMap)
+- **Acceptance:** builds cleanly; all tests pass; scanning uses ConsoleMultiThreadWorkers
