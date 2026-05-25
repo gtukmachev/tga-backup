@@ -1,6 +1,6 @@
 ---
-currentStage: 02-ansi-styling-dsl
-currentStagePath: .staged-dev/console-rendering/stage-02-ansi-styling-dsl
+currentStage: 03-throttled-output
+currentStagePath: .staged-dev/console-rendering/stage-03-throttled-output
 branch: feature/console-rendering
 codeReviewTool: roborev-review-branch
 ---
@@ -21,8 +21,8 @@ redirected to a file).
 ├────┼───────────────────────────────────────┼─────────────┤
 │ 00 │ Planning                              │ 🟢 Done     │
 │ 01 │ Terminal capability detection          │ 🟢 Done     │
-│ 02 │ ANSI styling DSL                      │ 🔵 Active   │
-│ 03 │ Throttled non-interactive output       │ ⬜ Pending  │
+│ 02 │ ANSI styling DSL                      │ 🟢 Done     │
+│ 03 │ Throttled non-interactive output       │ 🔵 Active   │
 │ 04 │ Summary table & plan styling           │ ⬜ Pending  │
 │ 05 │ Phase headers, logos & logging         │ ⬜ Pending  │
 │ 06 │ Multi-thread progress styling          │ ⬜ Pending  │
@@ -66,7 +66,7 @@ that all output goes through.
 - `Terminal.supportsAnsi` returns `false` when `NO_COLOR` is set
 - Unit tests with mocked env/system properties
 
-### Stage 02 — ANSI styling DSL
+### Stage 02 — ANSI styling DSL ✅
 
 **Goals:**
 - Create `tga.backup.terminal.Style` — a small utility for styled text:
