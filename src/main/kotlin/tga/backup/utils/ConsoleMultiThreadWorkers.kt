@@ -38,6 +38,7 @@ class ConsoleMultiThreadWorkers<T>(
 
     private val lastPrintTime = ConcurrentHashMap<Int, Long>()
     private val printInterval = ConcurrentHashMap<Int, Long>()
+    private val lastPrintedStatus = ConcurrentHashMap<Int, String>()
     private var globalLastPrintTime = 0L
     private var globalPrintInterval = INITIAL_THROTTLE_MS
 
@@ -134,8 +135,15 @@ class ConsoleMultiThreadWorkers<T>(
             print("[${linesToMoveUp}A\r[K$truncated[${linesToMoveUp}B")
             System.out.flush()
         } else {
-            if (force || shouldPrint(lineIndex)) {
-                println(stripAnsi(status))
+            val stripped = stripAnsi(status)
+            if (force) {
+                if (lastPrintedStatus[lineIndex] != stripped) {
+                    println(stripped)
+                    lastPrintedStatus[lineIndex] = stripped
+                }
+            } else if (shouldPrint(lineIndex)) {
+                println(stripped)
+                lastPrintedStatus[lineIndex] = stripped
             }
         }
     }

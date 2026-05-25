@@ -1,7 +1,7 @@
 package tga.backup.terminal
 
 private val ESC = 27.toChar()
-private val ANSI_REGEX = Regex("\u001b\\[[0-9;]*m")
+private val ANSI_REGEX = Regex("\u001b\\[[0-9;]*[A-Za-z~]")
 
 enum class Color(val darkCode: Int, val lightCode: Int) {
     SUCCESS(32, 32),
@@ -49,7 +49,7 @@ fun truncateToWidth(text: String, maxWidth: Int): String {
             hasAnsi = true
             val seqStart = i
             i += 2
-            while (i < text.length && text[i] != 'm') i++
+            while (i < text.length && !text[i].isLetter() && text[i] != '~') i++
             if (i < text.length) i++
             sb.append(text, seqStart, i)
         } else {
