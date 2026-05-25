@@ -14,12 +14,26 @@ colored, with icons, aligned columns, tables with alternating row styles, bold h
 while gracefully degrading when the terminal doesn't support ANSI escapes (e.g., output
 redirected to a file).
 
+## Stages
+
+| #  | Stage | Status |
+|----|-------|--------|
+| 00 | Planning | 🟢 Done |
+| 01 | Terminal capability detection | 🔵 Active |
+| 02 | ANSI styling DSL | ⬜ Pending |
+| 03 | Throttled non-interactive output | ⬜ Pending |
+| 04 | Summary table & plan styling | ⬜ Pending |
+| 05 | Phase headers, logos & logging | ⬜ Pending |
+| 06 | Multi-thread progress styling | ⬜ Pending |
+| 07 | End-to-end integration & polish | ⬜ Pending |
+| 08 | Final verification & cleanup | ⬜ Pending |
+
 ## Problem Analysis
 
 The codebase currently has:
 - **Raw `println`/`print` output** everywhere (Main.kt, BackupScript.kt, logging.kt, treeLoader.kt, FileOps.kt, logo.kt)
 - **Hardcoded ANSI codes** scattered in BackupScript (yellow warnings) and demo.kt (colored progress)
-- **ConsoleMultiThreadWorkers** uses ANSI cursor movement (`[<n>A`) with no terminal width awareness — long lines break the multi-line layout
+- **ConsoleMultiThreadWorkers** uses ANSI cursor movement with no terminal width awareness — long lines break the multi-line layout
 - **No detection** of terminal capabilities (color support, width, dark/light theme)
 - **No throttling** of output in non-interactive mode (pipe to file)
 
@@ -35,7 +49,7 @@ Phases are independent problem domains; stages within a phase are sequential.
 Foundation layer — detect what the terminal can do, and provide a central API
 that all output goes through.
 
-### Stage 01 — Terminal capability detection (`Terminal` object)
+### Stage 01 — Terminal capability detection
 
 **Goals:**
 - Create `tga.backup.terminal.Terminal` singleton that detects:
@@ -50,14 +64,14 @@ that all output goes through.
 - `Terminal.supportsAnsi` returns `false` when `NO_COLOR` is set
 - Unit tests with mocked env/system properties
 
-### Stage 02 — ANSI styling DSL (`Style` utility)
+### Stage 02 — ANSI styling DSL
 
 **Goals:**
 - Create `tga.backup.terminal.Style` — a small utility for styled text:
   - Color palette: define semantic colors (success, warning, error, info, muted, accent) with dark/light variants
   - `style(text, fg, bold, dim)` function that wraps text in ANSI codes only when `Terminal.supportsAnsi` is true
-  - `truncateToWidth(text, maxWidth)` — truncate with `…` if text exceeds width (strips ANSI for measurement)
-  - Icons: define Unicode icon constants (✓ ✗ ⬆ ⬇ ↔ 📁 📄 ⚡ etc.) — degrade to ASCII when ANSI is off
+  - `truncateToWidth(text, maxWidth)` — truncate with ellipsis if text exceeds width (strips ANSI for measurement)
+  - Icons: define Unicode icon constants — degrade to ASCII when ANSI is off
 - No third-party library — keep it minimal (just string wrapping)
 
 **Acceptance criteria:**
@@ -65,7 +79,7 @@ that all output goes through.
 - `truncateToWidth` correctly handles strings with embedded ANSI codes
 - Icons degrade to ASCII equivalents
 
-### Stage 03 — Throttled output for non-interactive mode
+### Stage 03 — Throttled non-interactive output
 
 **Goals:**
 - Enhance `ConsoleMultiThreadWorkers` to accept a `Terminal` reference
@@ -90,24 +104,24 @@ that all output goes through.
 
 Now that the infrastructure exists, apply it across the codebase.
 
-### Stage 04 — Style the summary table and plan output (BackupScript)
+### Stage 04 — Summary table & plan styling
 
 **Goals:**
-- Restyle `printSummary()`: use box-drawing chars (─│┌┐└┘), bold headers, alternating row colors (odd/even), right-aligned numbers
-- Restyle warning messages (no-deletion, no-overriding) with ⚠ icon and warning color
+- Restyle `printSummary()`: use box-drawing chars, bold headers, alternating row colors (odd/even), right-aligned numbers
+- Restyle warning messages (no-deletion, no-overriding) with warning icon and warning color
 - Style the `Continue (Y/N/m)?>` prompt
-- Style file lists (`logFilesList`, `logMovesList`): add icons (📁/📄), colored sizes, numbered with muted color
+- Style file lists (`logFilesList`, `logMovesList`): add icons, colored sizes, numbered with muted color
 
 **Acceptance criteria:**
 - Summary table renders with box-drawing characters and colored rows
 - All styling degrades cleanly when `Terminal.supportsAnsi` is false (plain ASCII table, no escape codes)
 - Visual check in terminal (run demo with `--dry-run`)
 
-### Stage 05 — Style phase headers, logos, and logging output
+### Stage 05 — Phase headers, logos & logging
 
 **Goals:**
 - Restyle `printLogo()` — add color/bold to the logo banner
-- Style `logPhase()` / `logPhaseDuration()` — add icons (⚡ for start, ✓ for complete), colors, bold phase name
+- Style `logPhase()` / `logPhaseDuration()` — add icons, colors, bold phase name
 - Style `logWrap()` — colored ok/error suffixes
 - Style `loadTree()` output ("Listing Source files" etc.)
 - Style the final summary (`printFinalSummary`) — green for success count, red for errors, error details in red
@@ -117,13 +131,13 @@ Now that the infrastructure exists, apply it across the codebase.
 - Error output stands out clearly
 - Clean degradation in non-interactive mode
 
-### Stage 06 — Style the multi-thread progress display
+### Stage 06 — Multi-thread progress styling
 
 **Goals:**
 - Apply semantic colors to `ConsoleMultiThreadWorkers` output lines:
   - Thread status: use info/accent color, progress indicators
   - Global status line: bold, with progress bar or percentage in color
-  - Error lines: red with ✗ icon
+  - Error lines: red with error icon
 - Ensure the progress display uses `Terminal.width` for alignment:
   - All thread lines should be the same width (padded/truncated)
   - Global status line centered or left-aligned consistently
@@ -137,7 +151,7 @@ Now that the infrastructure exists, apply it across the codebase.
 
 ## Phase 3: Polish & Integration
 
-### Stage 07 — End-to-end integration test and polish
+### Stage 07 — End-to-end integration & polish
 
 **Goals:**
 - Run the full backup flow with `--dry-run` against test fixtures and verify output visually
@@ -151,7 +165,7 @@ Now that the infrastructure exists, apply it across the codebase.
 - All existing tests pass
 - New tests cover terminal detection and style utilities
 
-### Stage 08 — Final verification and cleanup
+### Stage 08 — Final verification & cleanup
 
 **Goals:**
 - Final review of all changes
