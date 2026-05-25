@@ -1,6 +1,6 @@
 ---
-currentActivity: "Ready to start"
-nextPlannedActivity: "Create Color enum and style() function in Style.kt"
+currentActivity: "All steps complete — Style.kt with color, truncation, icons + 20 tests passing"
+nextPlannedActivity: "Stage complete — proceed to stage transition"
 ---
 
 # Stage 02 — ANSI Styling DSL
