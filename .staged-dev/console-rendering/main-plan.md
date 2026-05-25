@@ -1,6 +1,6 @@
 ---
-currentStage: 03-throttled-output
-currentStagePath: .staged-dev/console-rendering/stage-03-throttled-output
+currentStage: 04-summary-table-styling
+currentStagePath: .staged-dev/console-rendering/stage-04-summary-table-styling
 branch: feature/console-rendering
 codeReviewTool: roborev-review-branch
 ---
@@ -22,8 +22,8 @@ redirected to a file).
 │ 00 │ Planning                              │ 🟢 Done     │
 │ 01 │ Terminal capability detection          │ 🟢 Done     │
 │ 02 │ ANSI styling DSL                      │ 🟢 Done     │
-│ 03 │ Throttled non-interactive output       │ 🔵 Active   │
-│ 04 │ Summary table & plan styling           │ ⬜ Pending  │
+│ 03 │ Throttled non-interactive output       │ 🟢 Done     │
+│ 04 │ Summary table & plan styling           │ 🔵 Active   │
 │ 05 │ Phase headers, logos & logging         │ ⬜ Pending  │
 │ 06 │ Multi-thread progress styling          │ ⬜ Pending  │
 │ 07 │ End-to-end integration & polish        │ ⬜ Pending  │
@@ -81,7 +81,7 @@ that all output goes through.
 - `truncateToWidth` correctly handles strings with embedded ANSI codes
 - Icons degrade to ASCII equivalents
 
-### Stage 03 — Throttled non-interactive output
+### Stage 03 — Throttled non-interactive output ✅
 
 **Goals:**
 - Enhance `ConsoleMultiThreadWorkers` to accept a `Terminal` reference
