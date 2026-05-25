@@ -6,4 +6,4 @@
 
 This project uses staged development. See the plan and current stage:
 - **Main plan:** `.staged-dev/console-rendering/main-plan.md`
-- **Current stage:** @.staged-dev/console-rendering/stage-07-integration-polish/stage-07-plan.md
+- **Current stage:** @.staged-dev/console-rendering/stage-08-final-verification/stage-08-plan.md

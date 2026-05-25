@@ -1,6 +1,6 @@
 ---
-currentStage: 07-integration-polish
-currentStagePath: .staged-dev/console-rendering/stage-07-integration-polish
+currentStage: 08-final-verification
+currentStagePath: .staged-dev/console-rendering/stage-08-final-verification
 branch: feature/console-rendering
 codeReviewTool: roborev-review-branch
 ---
@@ -26,8 +26,8 @@ redirected to a file).
 │ 04 │ Summary table & plan styling           │ 🟢 Done     │
 │ 05 │ Phase headers, logos & logging         │ 🟢 Done     │
 │ 06 │ Multi-thread progress styling          │ 🟢 Done     │
-│ 07 │ End-to-end integration & polish        │ 🔵 Active   │
-│ 08 │ Final verification & cleanup           │ ⬜ Pending  │
+│ 07 │ End-to-end integration & polish        │ 🟢 Done     │
+│ 08 │ Final verification & cleanup           │ 🔵 Active   │
 └────┴───────────────────────────────────────┴─────────────┘
 
 ## Problem Analysis
@@ -153,7 +153,7 @@ Now that the infrastructure exists, apply it across the codebase.
 
 ## Phase 3: Polish & Integration
 
-### Stage 07 — End-to-end integration & polish
+### Stage 07 — End-to-end integration & polish ✅
 
 **Goals:**
 - Run the full backup flow with `--dry-run` against test fixtures and verify output visually

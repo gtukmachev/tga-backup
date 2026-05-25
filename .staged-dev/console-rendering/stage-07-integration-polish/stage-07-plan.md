@@ -1,6 +1,6 @@
 ---
-currentActivity: "Ready to start"
-nextPlannedActivity: "Run dry-run with safe test paths and verify visual output"
+currentActivity: "All checks pass — dry-run clean, no ANSI leaks, no hardcoded codes"
+nextPlannedActivity: "Stage complete — proceed to stage transition"
 ---
 
 # Stage 07 — End-to-end Integration & Polish
