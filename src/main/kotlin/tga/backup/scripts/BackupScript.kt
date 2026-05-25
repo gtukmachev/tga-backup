@@ -5,6 +5,9 @@ import tga.backup.files.*
 import tga.backup.log.*
 import tga.backup.params.ArgumentIsMissed
 import tga.backup.params.Params
+import tga.backup.terminal.Color
+import tga.backup.terminal.Icons
+import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
 
 private val logger = KotlinLogging.logger {  }
@@ -64,15 +67,12 @@ class BackupScript(params: Params) : Script(params) {
                 logFilesList("\nTo Delete (in '${params.dstFolder}')", actions.toDeleteFiles)
             }
 
-            val yellow = "\u001b[33m"
-            val reset = "\u001b[0m"
-
             if (params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
-                println("${yellow}WARNING: The 'no-overriding' parameter is specified. The overriding phase will be skipped.${reset}")
+                println(style("${Icons.WARNING} WARNING: The 'no-overriding' parameter is specified. The overriding phase will be skipped.", Color.WARNING))
             }
 
             if (params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
-                println("${yellow}WARNING: The 'no-deletion' parameter is specified. The deletion phase will be skipped.${reset}")
+                println(style("${Icons.WARNING} WARNING: The 'no-deletion' parameter is specified. The deletion phase will be skipped.", Color.WARNING))
             }
 
             printSummary(actions)
@@ -81,10 +81,10 @@ class BackupScript(params: Params) : Script(params) {
                 actions.toMoveFiles.isNotEmpty() || actions.toRenameFiles.isNotEmpty() || actions.toMoveFolders.isNotEmpty() || actions.toRenameFolders.isNotEmpty()
 
             if (anyMoves) {
-                println("${yellow}Moving/Renaming actions detected. You can execute only them (skip copying/deleting) by typing 'm'.${reset}")
+                println(style("${Icons.INFO} Moving/Renaming actions detected. You can execute only them (skip copying/deleting) by typing 'm'.", Color.WARNING))
             }
 
-            print("Continue (Y/N/m)?>")
+            print(style("Continue (Y/N/m)?> ", bold = true))
             val continueAnswer = readln()
 
             if (continueAnswer !in setOf("Y", "y", "m", "M")) {
@@ -149,15 +149,16 @@ class BackupScript(params: Params) : Script(params) {
         val successCount = results.count { it.isSuccess }
         val errorCount = results.count { it.isFailure }
 
-        println("\nFinal Result:")
-        println("Successfully processed: $successCount")
-        println("Errors:                 $errorCount")
-
+        println("\n${style("Final Result:", bold = true)}")
+        println("${Icons.CHECK} Successfully processed: ${style("$successCount", Color.SUCCESS)}")
         if (errorCount > 0) {
-            println("\nDetailed errors:")
+            println("${Icons.CROSS} Errors: ${style("$errorCount", Color.ERROR)}")
+            println("\n${style("Detailed errors:", Color.ERROR, bold = true)}")
             results.filter { it.isFailure }.forEach {
-                println("- ${it.exceptionOrNull()?.message ?: "Unknown error"}")
+                println(style("  ${Icons.CROSS} ${it.exceptionOrNull()?.message ?: "Unknown error"}", Color.ERROR))
             }
+        } else {
+            println("${Icons.CHECK} Errors: ${style("0", Color.MUTED)}")
         }
     }
 
@@ -234,14 +235,13 @@ class BackupScript(params: Params) : Script(params) {
     private fun logMovesList(prefix: String, movesList: Set<Pair<FileInfo, String>>, isRenamed: Boolean = false) {
         if (movesList.isEmpty()) return
         println("$prefix: \n")
-        val yellow = "\u001b[33m"
-        val reset = "\u001b[0m"
 
         val l = formatNumber(movesList.size).length
         movesList.sortedBy { it.second }.forEachIndexed { i, (src, dst) ->
-            print("${formatNumber(i).padStart(l)}. ")
-            if (isRenamed) print("${yellow}(renamed) ${reset}")
-            println("${src.name}  --->  $dst")
+            print(style("${formatNumber(i).padStart(l)}.", Color.MUTED))
+            print(" ")
+            if (isRenamed) print(style("(renamed) ", Color.WARNING))
+            println("${src.name}  ${Icons.ARROW}  $dst")
         }
     }
 
@@ -313,22 +313,33 @@ class BackupScript(params: Params) : Script(params) {
         val toMoveSizeStr = sizesData[4]
         val toRenameSizeStr = sizesData[5]
 
-        val lineStr = "-".repeat("| Action    |  |  |  |".length + toAddFoldersStr.length + toAddFilesStr.length + toAddSizeStr.length)
+        val fc = "Folders count".length.coerceAtLeast(toAddFoldersStr.length)
+        val flc = "Files count".length.coerceAtLeast(toAddFilesStr.length)
+        val sc = "Total Size".length.coerceAtLeast(toAddSizeStr.length)
 
-        println("\nSummary:")
-        println(lineStr)
-        println("| Action    | Folders count | Files count | Total Size |")
-        println(lineStr)
-        println("| Copy      | $toAddFoldersStr | $toAddFilesStr | $toAddSizeStr |")
-        println("| Override  | $toOverrideFoldersStr | $toOverrideFilesStr | $toOverrideSizeStr |")
-        println(lineStr)
-        println("| To upload | $totalFoldersStr | $totalFilesStr | $totalSizeStr |")
-        println(lineStr)
-        println("| Move      | $toMoveFoldersStr | $toMoveFilesStr | $toMoveSizeStr |")
-        println("| Rename    | $toRenameFoldersStr | $toRenameFilesStr | $toRenameSizeStr |")
-        println(lineStr)
-        println("| To Delete | $toDeleteFoldersStr | $toDeleteFilesStr | $toDeleteSizeStr |")
-        println(lineStr)
+        val top    = "┌${"─".repeat(12)}┬${"─".repeat(fc + 2)}┬${"─".repeat(flc + 2)}┬${"─".repeat(sc + 2)}┐"
+        val mid    = "├${"─".repeat(12)}┼${"─".repeat(fc + 2)}┼${"─".repeat(flc + 2)}┼${"─".repeat(sc + 2)}┤"
+        val bottom = "└${"─".repeat(12)}┴${"─".repeat(fc + 2)}┴${"─".repeat(flc + 2)}┴${"─".repeat(sc + 2)}┘"
+
+        fun row(action: String, folders: String, files: String, size: String, color: Color? = null): String {
+            val content = "│ ${action.padEnd(10)} │ ${folders.padStart(fc)} │ ${files.padStart(flc)} │ ${size.padStart(sc)} │"
+            return if (color != null) style(content, color) else content
+        }
+
+        println("\n${style("Summary:", bold = true)}")
+        println(top)
+        println(row(style("Action", bold = true), style("Folders", bold = true), style("Files", bold = true), style("Size", bold = true)))
+        println(mid)
+        println(row("Copy", toAddFoldersStr, toAddFilesStr, toAddSizeStr))
+        println(row("Override", toOverrideFoldersStr, toOverrideFilesStr, toOverrideSizeStr))
+        println(mid)
+        println(row("To upload", totalFoldersStr, totalFilesStr, totalSizeStr, Color.ACCENT))
+        println(mid)
+        println(row("Move", toMoveFoldersStr, toMoveFilesStr, toMoveSizeStr))
+        println(row("Rename", toRenameFoldersStr, toRenameFilesStr, toRenameSizeStr))
+        println(mid)
+        println(row("To Delete", toDeleteFoldersStr, toDeleteFilesStr, toDeleteSizeStr, Color.WARNING))
+        println(bottom)
         println("")
     }
 

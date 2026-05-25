@@ -1,6 +1,6 @@
 ---
-currentActivity: "Ready to start"
-nextPlannedActivity: "Restyle printSummary() with box-drawing characters and colors"
+currentActivity: "All steps complete — box-drawing table, styled warnings/prompts/logs, no hardcoded ANSI"
+nextPlannedActivity: "Stage complete — proceed to stage transition"
 ---
 
 # Stage 04 — Summary Table & Plan Styling

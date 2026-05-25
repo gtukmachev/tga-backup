@@ -1,13 +1,16 @@
 package tga.backup.log
 
 import tga.backup.files.FileInfo
+import tga.backup.terminal.Color
+import tga.backup.terminal.Icons
+import tga.backup.terminal.style
 
 fun <T> logWrap(prefix: String, eatErrors: Boolean = false, body: () -> T): T? {
     print(prefix)
     return try {
-        body().also { print("...ok") }
+        body().also { print(style("...ok", Color.SUCCESS)) }
     } catch (t: Throwable) {
-        print("...${t.toLog()}")
+        print(style("...${t.toLog()}", Color.ERROR))
         if (!eatErrors) throw t
         null
     } finally {
@@ -95,8 +98,9 @@ fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
         println("$prefix: \n")
         val l = formatNumber(filesList.size).length
         filesList.sorted().forEachIndexed { i, f ->
-            print("${formatNumber(i).padStart(l)}. [${formatFileSize(f.size, 6)}] ")
-            println(f.name)
+            print(style("${formatNumber(i).padStart(l)}.", Color.MUTED))
+            print(" [${style(formatFileSize(f.size, 6), Color.MUTED)}] ")
+            println("${Icons.FILE} ${f.name}")
         }
     }
 }
