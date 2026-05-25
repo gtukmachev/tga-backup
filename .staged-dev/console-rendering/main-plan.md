@@ -1,6 +1,6 @@
 ---
-currentStage: 05-phase-headers-logos
-currentStagePath: .staged-dev/console-rendering/stage-05-phase-headers-logos
+currentStage: 06-multi-thread-progress
+currentStagePath: .staged-dev/console-rendering/stage-06-multi-thread-progress
 branch: feature/console-rendering
 codeReviewTool: roborev-review-branch
 ---
@@ -24,8 +24,8 @@ redirected to a file).
 │ 02 │ ANSI styling DSL                      │ 🟢 Done     │
 │ 03 │ Throttled non-interactive output       │ 🟢 Done     │
 │ 04 │ Summary table & plan styling           │ 🟢 Done     │
-│ 05 │ Phase headers, logos & logging         │ 🔵 Active   │
-│ 06 │ Multi-thread progress styling          │ ⬜ Pending  │
+│ 05 │ Phase headers, logos & logging         │ 🟢 Done     │
+│ 06 │ Multi-thread progress styling          │ 🔵 Active   │
 │ 07 │ End-to-end integration & polish        │ ⬜ Pending  │
 │ 08 │ Final verification & cleanup           │ ⬜ Pending  │
 └────┴───────────────────────────────────────┴─────────────┘
@@ -119,7 +119,7 @@ Now that the infrastructure exists, apply it across the codebase.
 - All styling degrades cleanly when `Terminal.supportsAnsi` is false (plain ASCII table, no escape codes)
 - Visual check in terminal (run demo with `--dry-run`)
 
-### Stage 05 — Phase headers, logos & logging
+### Stage 05 — Phase headers, logos & logging ✅
 
 **Goals:**
 - Restyle `printLogo()` — add color/bold to the logo banner
