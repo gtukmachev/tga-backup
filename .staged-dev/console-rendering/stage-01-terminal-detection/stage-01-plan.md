@@ -1,6 +1,6 @@
 ---
-currentActivity: "Ready to start"
-nextPlannedActivity: "Create Terminal singleton with capability detection"
+currentActivity: "All steps complete — Terminal singleton, TerminalDetector, and 20 tests passing"
+nextPlannedActivity: "Stage complete — proceed to stage transition"
 ---
 
 # Stage 01 — Terminal Capability Detection
