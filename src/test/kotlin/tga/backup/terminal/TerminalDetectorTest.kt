@@ -10,10 +10,12 @@ class TerminalDetectorTest {
         env: Map<String, String> = emptyMap(),
         hasConsole: Boolean = true,
         sttyOutput: String? = null,
+        systemProperties: Map<String, String> = emptyMap(),
     ) = TerminalDetector(
         getEnv = { env[it] },
         getConsole = { if (hasConsole) Object() else null },
         runCommand = { sttyOutput },
+        getSystemProperty = { systemProperties[it] },
     )
 
     @Nested
@@ -73,6 +75,33 @@ class TerminalDetectorTest {
                 hasConsole = false,
             ).detect()
             assertThat(caps.supportsAnsi).isFalse()
+        }
+
+        @Test
+        fun `returns true on Windows 10 or later`() {
+            val caps = detector(
+                hasConsole = true,
+                systemProperties = mapOf("os.name" to "Windows 10", "os.version" to "10.0"),
+            ).detect()
+            assertThat(caps.supportsAnsi).isTrue()
+        }
+
+        @Test
+        fun `returns false on old Windows`() {
+            val caps = detector(
+                hasConsole = true,
+                systemProperties = mapOf("os.name" to "Windows 7", "os.version" to "6.1"),
+            ).detect()
+            assertThat(caps.supportsAnsi).isFalse()
+        }
+
+        @Test
+        fun `returns true on non-Windows unix-like OS`() {
+            val caps = detector(
+                hasConsole = true,
+                systemProperties = mapOf("os.name" to "Mac OS X"),
+            ).detect()
+            assertThat(caps.supportsAnsi).isTrue()
         }
     }
 

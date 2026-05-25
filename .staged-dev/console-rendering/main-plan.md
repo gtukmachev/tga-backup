@@ -1,6 +1,6 @@
 ---
-currentStage: 01-terminal-detection
-currentStagePath: .staged-dev/console-rendering/stage-01-terminal-detection
+currentStage: 02-ansi-styling-dsl
+currentStagePath: .staged-dev/console-rendering/stage-02-ansi-styling-dsl
 branch: feature/console-rendering
 codeReviewTool: roborev-review-branch
 ---
@@ -20,8 +20,8 @@ redirected to a file).
 │ #  │ Stage                                 │ Status      │
 ├────┼───────────────────────────────────────┼─────────────┤
 │ 00 │ Planning                              │ 🟢 Done     │
-│ 01 │ Terminal capability detection          │ 🔵 Active   │
-│ 02 │ ANSI styling DSL                      │ ⬜ Pending  │
+│ 01 │ Terminal capability detection          │ 🟢 Done     │
+│ 02 │ ANSI styling DSL                      │ 🔵 Active   │
 │ 03 │ Throttled non-interactive output       │ ⬜ Pending  │
 │ 04 │ Summary table & plan styling           │ ⬜ Pending  │
 │ 05 │ Phase headers, logos & logging         │ ⬜ Pending  │
@@ -51,7 +51,7 @@ Phases are independent problem domains; stages within a phase are sequential.
 Foundation layer — detect what the terminal can do, and provide a central API
 that all output goes through.
 
-### Stage 01 — Terminal capability detection
+### Stage 01 — Terminal capability detection ✅
 
 **Goals:**
 - Create `tga.backup.terminal.Terminal` singleton that detects:

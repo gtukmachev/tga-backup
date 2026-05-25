@@ -1,5 +1,7 @@
 package tga.backup.terminal
 
+import java.util.concurrent.TimeUnit
+
 data class TerminalCapabilities(
     val isInteractive: Boolean,
     val supportsAnsi: Boolean,
@@ -11,6 +13,7 @@ class TerminalDetector(
     private val getEnv: (String) -> String? = System::getenv,
     private val getConsole: () -> Any? = { System.console() },
     private val runCommand: (String) -> String? = ::execCommand,
+    private val getSystemProperty: (String) -> String? = System::getProperty,
 ) {
     fun detect(): TerminalCapabilities {
         val isInteractive = getConsole() != null
@@ -25,9 +28,9 @@ class TerminalDetector(
         if (!isInteractive) return false
         if (getEnv("NO_COLOR") != null) return false
         if (getEnv("TERM") == "dumb") return false
-        val os = System.getProperty("os.name")?.lowercase() ?: ""
-        if (os.contains("win")) {
-            val version = System.getProperty("os.version")?.toFloatOrNull() ?: 0f
+        val os = getSystemProperty("os.name")?.lowercase() ?: ""
+        if (os.startsWith("win")) {
+            val version = getSystemProperty("os.version")?.toFloatOrNull() ?: 0f
             return version >= 10.0f
         }
         return true
@@ -59,8 +62,11 @@ private fun execCommand(command: String): String? {
             .redirectErrorStream(true)
             .start()
         val output = process.inputStream.bufferedReader().readText()
-        val exitCode = process.waitFor()
-        if (exitCode == 0) output else null
+        val finished = process.waitFor(2, TimeUnit.SECONDS)
+        if (finished && process.exitValue() == 0) output else {
+            process.destroyForcibly()
+            null
+        }
     } catch (_: Exception) {
         null
     }

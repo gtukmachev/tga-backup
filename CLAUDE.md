@@ -6,4 +6,4 @@
 
 This project uses staged development. See the plan and current stage:
 - **Main plan:** `.staged-dev/console-rendering/main-plan.md`
-- **Current stage:** @.staged-dev/console-rendering/stage-01-terminal-detection/stage-01-plan.md
+- **Current stage:** @.staged-dev/console-rendering/stage-02-ansi-styling-dsl/stage-02-plan.md
