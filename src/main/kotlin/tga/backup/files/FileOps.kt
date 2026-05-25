@@ -248,6 +248,10 @@ class SyncStatus(
         val prediction = speedCalculator.predict(totalSize)
         val predictionStr = (prediction ?: "").padStart(30)
 
-        updateGlobalStatus("${style("Global status:", bold = true)} ${style("${globalPrc}%", Color.ACCENT)}  ${style("$loadedSizeStr / $totalSizeStr", Color.MUTED)} $predictionStr ${style("[$speedStr/s]", Color.INFO)}")
+        val styledLabel = style("Global status:", bold = true)
+        val styledPct = style("${globalPrc}%", Color.ACCENT)
+        val styledSizes = style("$loadedSizeStr / $totalSizeStr", Color.MUTED)
+        val styledSpeed = style("[$speedStr/s]", Color.INFO)
+        updateGlobalStatus("$styledLabel $styledPct  $styledSizes $predictionStr $styledSpeed")
     }
 }
