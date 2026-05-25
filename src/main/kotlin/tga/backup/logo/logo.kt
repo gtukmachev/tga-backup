@@ -1,6 +1,8 @@
 package tga.backup.logo
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import tga.backup.terminal.Color
+import tga.backup.terminal.style
 
 private val log = KotlinLogging.logger { }
 
@@ -8,7 +10,7 @@ fun printLogo() {
     log.info {
         """
             |
-            |Backup utility
+            |${style("Backup utility", Color.ACCENT, bold = true)}
             |    Syncs one folder to another using minimum file-system operations.
             |    Skips the same files.
             |    Supports local file-system and clouds: Yandex Disk, Google drive

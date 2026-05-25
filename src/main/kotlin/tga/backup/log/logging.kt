@@ -83,12 +83,12 @@ private val logger = io.github.oshai.kotlinlogging.KotlinLogging.logger {  }
 
 fun logPhase(phaseName: String) {
     val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-    logger.warn { "[$timestamp] Phase: $phaseName" }
+    logger.warn { "[$timestamp] ${Icons.ARROW} Phase: ${style(phaseName, bold = true)}" }
 }
 
 fun logPhaseDuration(phaseName: String, durationMs: Long) {
-    val durationSec = durationMs / 1000.0
-    logger.warn { "Phase '$phaseName' completed in %.2f seconds".format(durationSec) }
+    val formatted = formatTime(durationMs)
+    logger.warn { "${Icons.CHECK} Phase '$phaseName' completed in ${style(formatted, Color.MUTED)}" }
 }
 
 fun logFilesList(prefix: String, filesList: Set<FileInfo>) {
