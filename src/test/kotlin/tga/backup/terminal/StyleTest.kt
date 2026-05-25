@@ -101,9 +101,9 @@ class StyleTest {
         }
 
         @Test
-        fun `truncates with ellipsis when exceeding limit`() {
+        fun `truncates plain text with ellipsis and no ANSI codes`() {
             val result = truncateToWidth("hello world", 6)
-            assertThat(stripAnsi(result)).isEqualTo("hello…")
+            assertThat(result).isEqualTo("hello…")
         }
 
         @Test
@@ -130,31 +130,35 @@ class StyleTest {
     inner class IconsTest {
         @Test
         fun `returns unicode icons when supportsAnsi is true`() {
-            val savedValue = Icons.supportsAnsi
             try {
-                Icons.supportsAnsi = true
+                Icons.overrideSupportsAnsi = true
                 assertThat(Icons.CHECK).isEqualTo("✔")
                 assertThat(Icons.CROSS).isEqualTo("✖")
                 assertThat(Icons.WARNING).isEqualTo("⚠")
+                assertThat(Icons.INFO).isEqualTo("ℹ")
                 assertThat(Icons.ARROW).isEqualTo("→")
                 assertThat(Icons.BULLET).isEqualTo("•")
+                assertThat(Icons.FOLDER).isEqualTo("📁")
+                assertThat(Icons.FILE).isEqualTo("📄")
             } finally {
-                Icons.supportsAnsi = savedValue
+                Icons.overrideSupportsAnsi = null
             }
         }
 
         @Test
         fun `returns ASCII fallbacks when supportsAnsi is false`() {
-            val savedValue = Icons.supportsAnsi
             try {
-                Icons.supportsAnsi = false
+                Icons.overrideSupportsAnsi = false
                 assertThat(Icons.CHECK).isEqualTo("[OK]")
                 assertThat(Icons.CROSS).isEqualTo("[FAIL]")
                 assertThat(Icons.WARNING).isEqualTo("[!]")
+                assertThat(Icons.INFO).isEqualTo("[i]")
                 assertThat(Icons.ARROW).isEqualTo("->")
                 assertThat(Icons.BULLET).isEqualTo("*")
+                assertThat(Icons.FOLDER).isEqualTo("[D]")
+                assertThat(Icons.FILE).isEqualTo("[F]")
             } finally {
-                Icons.supportsAnsi = savedValue
+                Icons.overrideSupportsAnsi = null
             }
         }
     }

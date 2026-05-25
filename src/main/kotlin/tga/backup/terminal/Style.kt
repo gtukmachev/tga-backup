@@ -42,9 +42,11 @@ fun truncateToWidth(text: String, maxWidth: Int): String {
     val sb = StringBuilder()
     var visible = 0
     val target = maxWidth - 1
+    var hasAnsi = false
     var i = 0
     while (i < text.length && visible < target) {
         if (text[i] == ESC && i + 1 < text.length && text[i + 1] == '[') {
+            hasAnsi = true
             val seqStart = i
             i += 2
             while (i < text.length && text[i] != 'm') i++
@@ -57,13 +59,13 @@ fun truncateToWidth(text: String, maxWidth: Int): String {
         }
     }
     sb.append("\u2026")
-    sb.append("$ESC[0m")
+    if (hasAnsi) sb.append("$ESC[0m")
     return sb.toString()
 }
 
 object Icons {
-    var supportsAnsi: Boolean = Terminal.supportsAnsi
-        internal set
+    internal var overrideSupportsAnsi: Boolean? = null
+    val supportsAnsi: Boolean get() = overrideSupportsAnsi ?: Terminal.supportsAnsi
 
     val CHECK: String get() = if (supportsAnsi) "\u2714" else "[OK]"
     val CROSS: String get() = if (supportsAnsi) "\u2716" else "[FAIL]"
