@@ -1,5 +1,6 @@
 package tga.backup.utils
 
+import tga.backup.terminal.Terminal
 import tga.backup.terminal.TerminalCapabilities
 import tga.backup.terminal.TerminalDetector
 import tga.backup.terminal.stripAnsi
@@ -130,7 +131,7 @@ class ConsoleMultiThreadWorkers<T>(
     @Synchronized
     private fun outputStatus(lineIndex: Int, status: String, force: Boolean = false) {
         if (capabilities.isInteractive) {
-            val truncated = truncateToWidth(status, capabilities.width)
+            val truncated = truncateToWidth(status, Terminal.width)
             val linesToMoveUp = (threadCount + 1) - lineIndex
             print("[${linesToMoveUp}A\r[K$truncated[${linesToMoveUp}B")
             System.out.flush()
@@ -151,7 +152,7 @@ class ConsoleMultiThreadWorkers<T>(
     fun outputGlobalStatus(status: String, force: Boolean = false) {
         synchronized(this) {
             if (capabilities.isInteractive) {
-                val truncated = truncateToWidth(status, capabilities.width)
+                val truncated = truncateToWidth(status, Terminal.width)
                 print("[1A\r[K$truncated[1B")
                 System.out.flush()
             } else {

@@ -36,6 +36,8 @@ class TerminalDetector(
         return true
     }
 
+    fun detectWidth(): Int = detectWidth(getConsole() != null)
+
     private fun detectWidth(isInteractive: Boolean): Int {
         if (isInteractive) {
             val sttyOutput = runCommand("stty size 2>/dev/null")

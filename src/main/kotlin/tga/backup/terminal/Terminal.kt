@@ -4,11 +4,15 @@ import java.io.PrintStream
 import java.util.concurrent.TimeUnit
 
 object Terminal {
-    private val capabilities: TerminalCapabilities by lazy { TerminalDetector().detect() }
+    private val detector = TerminalDetector()
+    private val capabilities: TerminalCapabilities by lazy { detector.detect() }
+
+    private var cachedWidth: Int = 0
+    private var widthCacheTime: Long = 0
+    private const val WIDTH_CACHE_MS = 2000L
 
     val isInteractive: Boolean get() = capabilities.isInteractive
     val supportsAnsi: Boolean get() = capabilities.supportsAnsi
-    val width: Int get() = capabilities.width
     val isDarkTheme: Boolean get() = capabilities.isDarkTheme
 
     fun setupUtf8Console() {
@@ -22,5 +26,15 @@ object Terminal {
                     .waitFor(2, TimeUnit.SECONDS)
             } catch (_: Exception) {}
         }
+    }
+
+    val width: Int get() {
+        if (!isInteractive) return capabilities.width
+        val now = System.currentTimeMillis()
+        if (now - widthCacheTime > WIDTH_CACHE_MS) {
+            cachedWidth = detector.detectWidth()
+            widthCacheTime = now
+        }
+        return cachedWidth
     }
 }
