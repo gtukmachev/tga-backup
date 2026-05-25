@@ -16,17 +16,19 @@ redirected to a file).
 
 ## Stages
 
-| #  | Stage | Status |
-|----|-------|--------|
-| 00 | Planning | 🟢 Done |
-| 01 | Terminal capability detection | 🔵 Active |
-| 02 | ANSI styling DSL | ⬜ Pending |
-| 03 | Throttled non-interactive output | ⬜ Pending |
-| 04 | Summary table & plan styling | ⬜ Pending |
-| 05 | Phase headers, logos & logging | ⬜ Pending |
-| 06 | Multi-thread progress styling | ⬜ Pending |
-| 07 | End-to-end integration & polish | ⬜ Pending |
-| 08 | Final verification & cleanup | ⬜ Pending |
+┌────┬───────────────────────────────────────┬─────────────┐
+│ #  │ Stage                                 │ Status      │
+├────┼───────────────────────────────────────┼─────────────┤
+│ 00 │ Planning                              │ 🟢 Done     │
+│ 01 │ Terminal capability detection          │ 🔵 Active   │
+│ 02 │ ANSI styling DSL                      │ ⬜ Pending  │
+│ 03 │ Throttled non-interactive output       │ ⬜ Pending  │
+│ 04 │ Summary table & plan styling           │ ⬜ Pending  │
+│ 05 │ Phase headers, logos & logging         │ ⬜ Pending  │
+│ 06 │ Multi-thread progress styling          │ ⬜ Pending  │
+│ 07 │ End-to-end integration & polish        │ ⬜ Pending  │
+│ 08 │ Final verification & cleanup           │ ⬜ Pending  │
+└────┴───────────────────────────────────────┴─────────────┘
 
 ## Problem Analysis
 
