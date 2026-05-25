@@ -1,5 +1,9 @@
 package tga.backup.utils
 
+import tga.backup.terminal.TerminalCapabilities
+import tga.backup.terminal.TerminalDetector
+import tga.backup.terminal.stripAnsi
+import tga.backup.terminal.truncateToWidth
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -21,6 +25,7 @@ fun interface DynamicTask<T> {
 
 class ConsoleMultiThreadWorkers<T>(
     private val threadCount: Int,
+    private val capabilities: TerminalCapabilities = TerminalDetector().detect(),
 ) {
 
     private val executor = Executors.newFixedThreadPool(threadCount)
@@ -31,8 +36,15 @@ class ConsoleMultiThreadWorkers<T>(
     private val phaser = Phaser(1)
     private val dynamicError = AtomicReference<Throwable?>(null)
 
+    private val lastPrintTime = ConcurrentHashMap<Int, Long>()
+    private val printInterval = ConcurrentHashMap<Int, Long>()
+    private var globalLastPrintTime = 0L
+    private var globalPrintInterval = INITIAL_THROTTLE_MS
+
     init {
-        repeat(threadCount + 1) { println() }
+        if (capabilities.isInteractive) {
+            repeat(threadCount + 1) { println() }
+        }
     }
 
 
@@ -43,14 +55,16 @@ class ConsoleMultiThreadWorkers<T>(
             val lineIndex = workerLineMap.getOrPut(threadId) { nextLineIndex.getAndIncrement() % threadCount }
 
             activeTasks.incrementAndGet()
+            var lastStatus = ""
             try {
                 val result = task.run(
-                    { status -> outputStatus(lineIndex, status) },
+                    { status -> lastStatus = status; outputStatus(lineIndex, status) },
                     { globalStatus -> outputGlobalStatus(globalStatus) }
                 )
+                outputStatus(lineIndex, lastStatus, force = true)
                 Result.success(result)
             } catch (e: Throwable) {
-                outputStatus(lineIndex, "Error: ${e.message}")
+                outputStatus(lineIndex, "Error: ${e.message}", force = true)
                 Result.failure(e)
             } finally {
                 activeTasks.decrementAndGet()
@@ -75,16 +89,18 @@ class ConsoleMultiThreadWorkers<T>(
             val threadId = Thread.currentThread().id
             val lineIndex = workerLineMap.getOrPut(threadId) { nextLineIndex.getAndIncrement() % threadCount }
 
+            var lastStatus = ""
             try {
                 if (dynamicError.get() != null) return@execute
                 task.run(
-                    { status -> outputStatus(lineIndex, status) },
+                    { status -> lastStatus = status; outputStatus(lineIndex, status) },
                     { globalStatus -> outputGlobalStatus(globalStatus) },
                     { child -> submitDynamic(child) }
                 )
+                outputStatus(lineIndex, lastStatus, force = true)
             } catch (e: Throwable) {
                 dynamicError.compareAndSet(null, e)
-                outputStatus(lineIndex, "Error: ${e.message}")
+                outputStatus(lineIndex, "Error: ${e.message}", force = true)
             } finally {
                 phaser.arriveAndDeregister()
             }
@@ -111,17 +127,46 @@ class ConsoleMultiThreadWorkers<T>(
     }
 
     @Synchronized
-    private fun outputStatus(lineIndex: Int, status: String) {
-        val linesToMoveUp = (threadCount + 1) - lineIndex
-        print("\u001b[${linesToMoveUp}A\r\u001b[K$status\u001b[${linesToMoveUp}B")
-        System.out.flush()
+    private fun outputStatus(lineIndex: Int, status: String, force: Boolean = false) {
+        if (capabilities.isInteractive) {
+            val truncated = truncateToWidth(status, capabilities.width)
+            val linesToMoveUp = (threadCount + 1) - lineIndex
+            print("[${linesToMoveUp}A\r[K$truncated[${linesToMoveUp}B")
+            System.out.flush()
+        } else {
+            if (force || shouldPrint(lineIndex)) {
+                println(stripAnsi(status))
+            }
+        }
     }
 
-    fun outputGlobalStatus(status: String) {
+    fun outputGlobalStatus(status: String, force: Boolean = false) {
         synchronized(this) {
-            print("\u001b[1A\r\u001b[K$status\u001b[1B")
-            System.out.flush()
+            if (capabilities.isInteractive) {
+                val truncated = truncateToWidth(status, capabilities.width)
+                print("[1A\r[K$truncated[1B")
+                System.out.flush()
+            } else {
+                val now = System.currentTimeMillis()
+                if (force || now - globalLastPrintTime >= globalPrintInterval) {
+                    println(stripAnsi(status))
+                    globalLastPrintTime = now
+                    globalPrintInterval = (globalPrintInterval * 2).coerceAtMost(MAX_THROTTLE_MS)
+                }
+            }
         }
+    }
+
+    private fun shouldPrint(lineIndex: Int): Boolean {
+        val now = System.currentTimeMillis()
+        val lastTime = lastPrintTime[lineIndex]
+        val interval = printInterval.getOrDefault(lineIndex, INITIAL_THROTTLE_MS)
+        if (lastTime == null || now - lastTime >= interval) {
+            lastPrintTime[lineIndex] = now
+            printInterval[lineIndex] = (interval * 2).coerceAtMost(MAX_THROTTLE_MS)
+            return true
+        }
+        return false
     }
 
     fun waitForCompletion() {
@@ -131,5 +176,10 @@ class ConsoleMultiThreadWorkers<T>(
 
     fun shutdown() {
         executor.shutdownNow()
+    }
+
+    companion object {
+        private const val INITIAL_THROTTLE_MS = 1000L
+        private const val MAX_THROTTLE_MS = 10000L
     }
 }

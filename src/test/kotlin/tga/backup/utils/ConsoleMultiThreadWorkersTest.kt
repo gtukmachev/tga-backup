@@ -3,15 +3,23 @@ package tga.backup.utils
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import tga.backup.terminal.TerminalCapabilities
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertTrue
 
 class ConsoleMultiThreadWorkersTest {
 
+    private val nonInteractive = TerminalCapabilities(
+        isInteractive = false,
+        supportsAnsi = false,
+        width = 120,
+        isDarkTheme = true,
+    )
+
     @Test
     fun demoTest() {
-        val workers = ConsoleMultiThreadWorkers<Int>(5)
+        val workers = ConsoleMultiThreadWorkers<Int>(5, nonInteractive)
         val futures = mutableListOf<java.util.concurrent.Future<Result<Int>>>()
 
         repeat(15) { n ->
@@ -52,7 +60,7 @@ class ConsoleMultiThreadWorkersTest {
 
     @Test
     fun `submitDynamic - tasks can spawn children and all complete`() {
-        val workers = ConsoleMultiThreadWorkers<Unit>(3)
+        val workers = ConsoleMultiThreadWorkers<Unit>(3, nonInteractive)
         val completed = ConcurrentHashMap.newKeySet<String>()
 
         workers.submitDynamic { updateStatus, updateGlobalStatus, submitChild ->
@@ -90,7 +98,7 @@ class ConsoleMultiThreadWorkersTest {
 
     @Test
     fun `submitDynamic - global status updates work`() {
-        val workers = ConsoleMultiThreadWorkers<Unit>(2)
+        val workers = ConsoleMultiThreadWorkers<Unit>(2, nonInteractive)
         val counter = AtomicInteger(0)
 
         workers.submitDynamic { _, updateGlobalStatus, submitChild ->
@@ -115,7 +123,7 @@ class ConsoleMultiThreadWorkersTest {
 
     @Test
     fun `submitDynamic - error in child propagates`() {
-        val workers = ConsoleMultiThreadWorkers<Unit>(2)
+        val workers = ConsoleMultiThreadWorkers<Unit>(2, nonInteractive)
 
         workers.submitDynamic { _, _, submitChild ->
             submitChild(DynamicTask { _, _, _ ->
@@ -131,5 +139,52 @@ class ConsoleMultiThreadWorkersTest {
         }
 
         workers.shutdown()
+    }
+
+    @Test
+    fun `non-interactive output contains no ANSI escape codes`() {
+        val captured = java.io.ByteArrayOutputStream()
+        val originalOut = System.out
+        System.setOut(java.io.PrintStream(captured))
+        try {
+            val workers = ConsoleMultiThreadWorkers<Int>(2, nonInteractive)
+            workers.submit { updateStatus, updateGlobalStatus ->
+                updateStatus("\u001b[32mgreen text\u001b[0m")
+                updateGlobalStatus("progress: 50%")
+                42
+            }
+            workers.waitForCompletion()
+            workers.shutdown()
+        } finally {
+            System.setOut(originalOut)
+        }
+        val output = captured.toString()
+        val esc = 27.toChar().toString()
+        assertThat(output).doesNotContain(esc)
+        assertThat(output).contains("green text")
+    }
+
+    @Test
+    fun `non-interactive mode throttles repeated updates`() {
+        val captured = java.io.ByteArrayOutputStream()
+        val originalOut = System.out
+        System.setOut(java.io.PrintStream(captured))
+        try {
+            val workers = ConsoleMultiThreadWorkers<Int>(1, nonInteractive)
+            workers.submit { updateStatus, _ ->
+                repeat(50) { i ->
+                    updateStatus("update $i")
+                }
+                99
+            }
+            workers.waitForCompletion()
+            workers.shutdown()
+        } finally {
+            System.setOut(originalOut)
+        }
+        val output = captured.toString()
+        val lineCount = output.lines().count { it.contains("update") }
+        assertThat(lineCount).isLessThan(50)
+        assertThat(lineCount).isGreaterThanOrEqualTo(2)
     }
 }
