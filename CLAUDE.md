@@ -6,4 +6,4 @@
 
 This project uses staged development. See the plan and current stage:
 - **Main plan:** `.staged-dev/console-rendering/main-plan.md`
-- **Current stage:** @.staged-dev/console-rendering/stage-04-summary-table-styling/stage-04-plan.md
+- **Current stage:** @.staged-dev/console-rendering/stage-05-phase-headers-logos/stage-05-plan.md

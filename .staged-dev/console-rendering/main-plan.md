@@ -1,6 +1,6 @@
 ---
-currentStage: 04-summary-table-styling
-currentStagePath: .staged-dev/console-rendering/stage-04-summary-table-styling
+currentStage: 05-phase-headers-logos
+currentStagePath: .staged-dev/console-rendering/stage-05-phase-headers-logos
 branch: feature/console-rendering
 codeReviewTool: roborev-review-branch
 ---
@@ -20,11 +20,11 @@ redirected to a file).
 │ #  │ Stage                                 │ Status      │
 ├────┼───────────────────────────────────────┼─────────────┤
 │ 00 │ Planning                              │ 🟢 Done     │
-│ 01 │ Terminal capability detection          │ 🟢 Done     │
+│ 01 │ Terminal capability detection         │ 🟢 Done     │
 │ 02 │ ANSI styling DSL                      │ 🟢 Done     │
 │ 03 │ Throttled non-interactive output       │ 🟢 Done     │
-│ 04 │ Summary table & plan styling           │ 🔵 Active   │
-│ 05 │ Phase headers, logos & logging         │ ⬜ Pending  │
+│ 04 │ Summary table & plan styling           │ 🟢 Done     │
+│ 05 │ Phase headers, logos & logging         │ 🔵 Active   │
 │ 06 │ Multi-thread progress styling          │ ⬜ Pending  │
 │ 07 │ End-to-end integration & polish        │ ⬜ Pending  │
 │ 08 │ Final verification & cleanup           │ ⬜ Pending  │
@@ -106,7 +106,7 @@ that all output goes through.
 
 Now that the infrastructure exists, apply it across the codebase.
 
-### Stage 04 — Summary table & plan styling
+### Stage 04 — Summary table & plan styling ✅
 
 **Goals:**
 - Restyle `printSummary()`: use box-drawing chars, bold headers, alternating row colors (odd/even), right-aligned numbers
