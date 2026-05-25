@@ -1,5 +1,7 @@
 package tga.backup.utils
 
+import tga.backup.terminal.Color
+import tga.backup.terminal.style
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
@@ -19,18 +21,18 @@ fun main() {
                 val speed = 100L + Random.nextLong(200)
                 repeat(iterationsPerTask) { i ->
                     val ratio = i / iterationsPerTask.toDouble()
-                    val colorCode = when {
-                        ratio < 0.25 -> "\u001b[90m" // Dark Gray
-                        ratio < 0.50 -> "\u001b[34m" // Blue
-                        ratio < 0.75 -> "\u001b[94m" // Light Blue
-                        else -> "\u001b[96m"         // Light Cyan
+                    val color = when {
+                        ratio < 0.25 -> Color.MUTED
+                        ratio < 0.50 -> Color.INFO
+                        ratio < 0.75 -> Color.ACCENT
+                        else -> Color.SUCCESS
                     }
                     message += "*"
-                    updateStatus("$colorCode$message\u001b[0m")
-                    
+                    updateStatus(style(message, color))
+
                     val currentTotal = totalProgress.incrementAndGet()
                     val globalRatio = (currentTotal.toDouble() / maxProgress) * 100
-                    updateGlobalStatus("Total progress: ${"%.2f".format(globalRatio)}%")
+                    updateGlobalStatus("${style("Total progress:", bold = true)} ${style("${"%.2f".format(globalRatio)}%", Color.ACCENT)}")
 
                     Thread.sleep(speed)
                 }
@@ -40,12 +42,13 @@ fun main() {
         }
 
     workers.waitForCompletion()
-    
-    println("\n\nAll tasks finished. Results:")
+
+    println("\n\n${style("All tasks finished. Results:", bold = true)}")
     futures.forEachIndexed { index, future ->
         val res = future.get()
-        println("Task $index: $res")
+        val text = if (res.isSuccess) style("Task $index: $res", Color.SUCCESS) else style("Task $index: $res", Color.ERROR)
+        println(text)
     }
-    
+
     workers.shutdown()
 }

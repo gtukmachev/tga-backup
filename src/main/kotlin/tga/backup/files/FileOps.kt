@@ -4,6 +4,8 @@ import tga.backup.log.formatFileSize
 import tga.backup.log.formatNumber
 import tga.backup.log.formatTime
 import tga.backup.log.logWrap
+import tga.backup.terminal.Color
+import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicInteger
@@ -246,6 +248,6 @@ class SyncStatus(
         val prediction = speedCalculator.predict(totalSize)
         val predictionStr = (prediction ?: "").padStart(30)
 
-        updateGlobalStatus("Global status: ${globalPrc}%  $loadedSizeStr / $totalSizeStr $predictionStr [$speedStr/s]")
+        updateGlobalStatus("${style("Global status:", bold = true)} ${style("${globalPrc}%", Color.ACCENT)}  ${style("$loadedSizeStr / $totalSizeStr", Color.MUTED)} $predictionStr ${style("[$speedStr/s]", Color.INFO)}")
     }
 }

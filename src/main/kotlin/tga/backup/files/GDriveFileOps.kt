@@ -7,6 +7,9 @@ import tga.backup.gdrive.GDriveResponseException
 import tga.backup.log.formatFileSize
 import tga.backup.log.formatNumber
 import tga.backup.log.toLog
+import tga.backup.terminal.Color
+import tga.backup.terminal.Icons
+import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import tga.backup.utils.DynamicTask
 import java.io.File
@@ -57,7 +60,7 @@ class GDriveFileOps(
         fun updateGlobalLine(updateGlobalStatus: (String) -> Unit) {
             val count = files.size
             val size = totalSize.get()
-            updateGlobalStatus("Scanning GDrive: ${formatNumber(count.toLong())} files [${formatFileSize(size)}]")
+            updateGlobalStatus("${style("Scanning GDrive:", bold = true)} ${style(formatNumber(count.toLong()), Color.ACCENT)} files ${style("[${formatFileSize(size)}]", Color.MUTED)}")
         }
 
         fun scanFolder(
@@ -70,7 +73,7 @@ class GDriveFileOps(
             var pageToken: String? = null
             do {
                 val shortPath = relativePath.ifEmpty { "/" }
-                updateStatus("Fetching: $shortPath")
+                updateStatus("${style("Fetching:", Color.INFO)} $shortPath")
                 logger.debug { "Fetching folder: $relativePath (folderId: $folderId)" }
 
                 val (items, nextToken) = gdrive.listFiles(folderId, pageToken)
@@ -243,17 +246,21 @@ class GDriveFileOps(
                 progressBar = prediction + progressBar.substring(prediction.length)
             }
 
-            if (isDone) progressBar += " DONE "
+            if (isDone) progressBar += " ${Icons.CHECK} DONE "
 
             val fileNameLen = 50
             val shortName = if (fileName.length > fileNameLen) ("..." + fileName.takeLast(fileNameLen - 3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
             val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
 
+            val styledAction = style(action, bold = true)
+            val styledPct = style("$percentStr%", Color.ACCENT)
+            val styledSpeed = style("$speedStr/s", Color.MUTED)
+            val styledBar = if (isDone) style(progressBar, Color.SUCCESS) else progressBar
             val status = if (err == null) {
-                "$action $shortName [$percentStr% $speedStr/s $progressBar]"
+                "$styledAction $shortName [$styledPct $styledSpeed $styledBar]"
             } else {
-                "$action $shortName [$percentStr%] Error: ${err.toLog()}"
+                "$styledAction $shortName [$styledPct] ${style("${Icons.CROSS} Error: ${err.toLog()}", Color.ERROR)}"
             }
             updateStatus(status)
 

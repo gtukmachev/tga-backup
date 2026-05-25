@@ -2,6 +2,9 @@ package tga.backup.files
 
 import tga.backup.log.formatFileSize
 import tga.backup.log.formatNumber
+import tga.backup.terminal.Color
+import tga.backup.terminal.Icons
+import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import java.io.File
 import java.security.MessageDigest
@@ -170,15 +173,19 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
                 progressBar = prediction + progressBar.substring(prediction.length)
             }
 
-            if (isDone) progressBar += " DONE "
+            if (isDone) progressBar += " ${Icons.CHECK} DONE "
 
             val fileNameLen = 50
             val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
             val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
 
-            val errStr = if (err != null) " ERROR: ${err.message}" else ""
-            updateStatus("$action: $shortName $percentStr% [$speedStr/s] $progressBar$errStr")
+            val styledAction = style(action, bold = true)
+            val styledPct = style("$percentStr%", Color.ACCENT)
+            val styledSpeed = style("[$speedStr/s]", Color.MUTED)
+            val styledBar = if (isDone) style(progressBar, Color.SUCCESS) else progressBar
+            val errStr = if (err != null) style(" ${Icons.CROSS} ERROR: ${err.message}", Color.ERROR) else ""
+            updateStatus("$styledAction: $shortName $styledPct $styledSpeed $styledBar$errStr")
             syncStatus.formatProgress()
         }
     }
