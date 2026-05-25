@@ -22,12 +22,12 @@ redirected to a file).
 │ 00 │ Planning                              │ 🟢 Done     │
 │ 01 │ Terminal capability detection         │ 🟢 Done     │
 │ 02 │ ANSI styling DSL                      │ 🟢 Done     │
-│ 03 │ Throttled non-interactive output       │ 🟢 Done     │
-│ 04 │ Summary table & plan styling           │ 🟢 Done     │
-│ 05 │ Phase headers, logos & logging         │ 🟢 Done     │
-│ 06 │ Multi-thread progress styling          │ 🟢 Done     │
-│ 07 │ End-to-end integration & polish        │ 🟢 Done     │
-│ 08 │ Final verification & cleanup           │ 🟢 Done     │
+│ 03 │ Throttled non-interactive output      │ 🟢 Done     │
+│ 04 │ Summary table & plan styling          │ 🟢 Done     │
+│ 05 │ Phase headers, logos & logging        │ 🟢 Done     │
+│ 06 │ Multi-thread progress styling         │ 🟢 Done     │
+│ 07 │ End-to-end integration & polish       │ 🟢 Done     │
+│ 08 │ Final verification & cleanup          │ 🟢 Done     │
 └────┴───────────────────────────────────────┴─────────────┘
 
 ## Problem Analysis
