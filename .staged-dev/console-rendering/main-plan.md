@@ -1,6 +1,6 @@
 ---
-currentStage: 06-multi-thread-progress
-currentStagePath: .staged-dev/console-rendering/stage-06-multi-thread-progress
+currentStage: 07-integration-polish
+currentStagePath: .staged-dev/console-rendering/stage-07-integration-polish
 branch: feature/console-rendering
 codeReviewTool: roborev-review-branch
 ---
@@ -25,8 +25,8 @@ redirected to a file).
 │ 03 │ Throttled non-interactive output       │ 🟢 Done     │
 │ 04 │ Summary table & plan styling           │ 🟢 Done     │
 │ 05 │ Phase headers, logos & logging         │ 🟢 Done     │
-│ 06 │ Multi-thread progress styling          │ 🔵 Active   │
-│ 07 │ End-to-end integration & polish        │ ⬜ Pending  │
+│ 06 │ Multi-thread progress styling          │ 🟢 Done     │
+│ 07 │ End-to-end integration & polish        │ 🔵 Active   │
 │ 08 │ Final verification & cleanup           │ ⬜ Pending  │
 └────┴───────────────────────────────────────┴─────────────┘
 
@@ -133,7 +133,7 @@ Now that the infrastructure exists, apply it across the codebase.
 - Error output stands out clearly
 - Clean degradation in non-interactive mode
 
-### Stage 06 — Multi-thread progress styling
+### Stage 06 — Multi-thread progress styling ✅
 
 **Goals:**
 - Apply semantic colors to `ConsoleMultiThreadWorkers` output lines:
