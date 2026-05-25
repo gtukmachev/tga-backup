@@ -39,8 +39,8 @@ class ConsoleMultiThreadWorkers<T>(
     private val lastPrintTime = ConcurrentHashMap<Int, Long>()
     private val printInterval = ConcurrentHashMap<Int, Long>()
     private val lastPrintedStatus = ConcurrentHashMap<Int, String>()
-    private var globalLastPrintTime = 0L
-    private var globalPrintInterval = INITIAL_THROTTLE_MS
+    @Volatile private var globalLastPrintTime = 0L
+    @Volatile private var globalPrintInterval = INITIAL_THROTTLE_MS
 
     init {
         if (capabilities.isInteractive) {

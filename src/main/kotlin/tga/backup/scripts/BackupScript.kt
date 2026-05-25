@@ -332,7 +332,7 @@ class BackupScript(params: Params) : Script(params) {
 
         println("\n${style("Summary:", bold = true)}")
         println(top)
-        println(row("Action", "Folders", "Files", "Size", bold = true))
+        println(row("Action", "Folders count", "Files count", "Total Size", bold = true))
         println(mid)
         println(row("Copy", toAddFoldersStr, toAddFilesStr, toAddSizeStr))
         println(row("Override", toOverrideFoldersStr, toOverrideFilesStr, toOverrideSizeStr))
