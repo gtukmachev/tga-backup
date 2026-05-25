@@ -321,14 +321,18 @@ class BackupScript(params: Params) : Script(params) {
         val mid    = "├${"─".repeat(12)}┼${"─".repeat(fc + 2)}┼${"─".repeat(flc + 2)}┼${"─".repeat(sc + 2)}┤"
         val bottom = "└${"─".repeat(12)}┴${"─".repeat(fc + 2)}┴${"─".repeat(flc + 2)}┴${"─".repeat(sc + 2)}┘"
 
-        fun row(action: String, folders: String, files: String, size: String, color: Color? = null): String {
+        fun row(action: String, folders: String, files: String, size: String, color: Color? = null, bold: Boolean = false): String {
             val content = "│ ${action.padEnd(10)} │ ${folders.padStart(fc)} │ ${files.padStart(flc)} │ ${size.padStart(sc)} │"
-            return if (color != null) style(content, color) else content
+            return when {
+                bold -> style(content, bold = true)
+                color != null -> style(content, color)
+                else -> content
+            }
         }
 
         println("\n${style("Summary:", bold = true)}")
         println(top)
-        println(row(style("Action", bold = true), style("Folders", bold = true), style("Files", bold = true), style("Size", bold = true)))
+        println(row("Action", "Folders", "Files", "Size", bold = true))
         println(mid)
         println(row("Copy", toAddFoldersStr, toAddFilesStr, toAddSizeStr))
         println(row("Override", toOverrideFoldersStr, toOverrideFilesStr, toOverrideSizeStr))

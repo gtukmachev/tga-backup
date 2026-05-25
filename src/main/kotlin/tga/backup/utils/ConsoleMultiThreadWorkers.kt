@@ -62,7 +62,7 @@ class ConsoleMultiThreadWorkers<T>(
                     { status -> lastStatus = status; outputStatus(lineIndex, status) },
                     { globalStatus -> outputGlobalStatus(globalStatus) }
                 )
-                outputStatus(lineIndex, lastStatus, force = true)
+                if (lastStatus.isNotEmpty()) outputStatus(lineIndex, lastStatus, force = true)
                 Result.success(result)
             } catch (e: Throwable) {
                 outputStatus(lineIndex, "Error: ${e.message}", force = true)
@@ -98,7 +98,7 @@ class ConsoleMultiThreadWorkers<T>(
                     { globalStatus -> outputGlobalStatus(globalStatus) },
                     { child -> submitDynamic(child) }
                 )
-                outputStatus(lineIndex, lastStatus, force = true)
+                if (lastStatus.isNotEmpty()) outputStatus(lineIndex, lastStatus, force = true)
             } catch (e: Throwable) {
                 dynamicError.compareAndSet(null, e)
                 outputStatus(lineIndex, "Error: ${e.message}", force = true)
