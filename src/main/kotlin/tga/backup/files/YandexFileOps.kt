@@ -10,6 +10,7 @@ import tga.backup.terminal.Icons
 import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import tga.backup.utils.DynamicTask
+import tga.backup.utils.WorkerPrinter
 import tga.backup.yandex.YandexResponseException
 import tga.backup.yandex.YandexResumableUploader
 import java.io.File
@@ -48,22 +49,21 @@ class YandexFileOps(
 
         val workers = ConsoleMultiThreadWorkers<Unit>(20)
 
-        fun updateGlobalLine(updateGlobalStatus: (String) -> Unit) {
+        fun updateGlobalLine(printer: WorkerPrinter) {
             val count = files.size
             val size = totalSize.get()
-            updateGlobalStatus("${style("Scanning Yandex:", bold = true)} ${style(formatNumber(count.toLong()), Color.ACCENT)} files ${style("[${formatFileSize(size)}]", Color.MUTED)}")
+            printer.updateGlobalStatus("${style("Scanning Yandex:", bold = true)} ${style(formatNumber(count.toLong()), Color.ACCENT)} files ${style("[${formatFileSize(size)}]", Color.MUTED)}")
         }
 
         fun scanFolder(
             path: String,
-            updateStatus: (String) -> Unit,
-            updateGlobalStatus: (String) -> Unit,
+            printer: WorkerPrinter,
             submitChild: (DynamicTask<Unit>) -> Unit
         ) {
             var offset = 0
             while (true) {
                 val shortPath = path.removePrefix(fullRootPath).ifEmpty { "/" }
-                updateStatus("${style("Fetching:", Color.INFO)} $shortPath" + if (offset > 0) " (offset: $offset)" else "")
+                printer.updateStatus("${style("Fetching:", Color.INFO)} $shortPath" + if (offset > 0) " (offset: $offset)" else "")
                 logger.debug { "Fetching folder metadata: $path (offset: $offset)" }
 
                 val resource = try {
@@ -83,7 +83,7 @@ class YandexFileOps(
                     val fileInfo = resource.toFileInfo(fullRootPathPrefix)
                     if (fileInfo.name.isNotEmpty()) {
                         files.add(fileInfo)
-                        updateGlobalLine(updateGlobalStatus)
+                        updateGlobalLine(printer)
                     }
                 }
 
@@ -105,14 +105,14 @@ class YandexFileOps(
 
                     val type = item.get("type").asString
                     if (type == "dir") {
-                        submitChild(DynamicTask { childStatus, childGlobal, childSubmit ->
-                            scanFolder(itemPath, childStatus, childGlobal, childSubmit)
+                        submitChild(DynamicTask { childPrinter, childSubmit ->
+                            scanFolder(itemPath, childPrinter, childSubmit)
                         })
                     } else {
                         val fileInfo = item.toFileInfo(fullRootPathPrefix)
                         files.add(fileInfo)
                         totalSize.addAndGet(fileInfo.size)
-                        updateGlobalLine(updateGlobalStatus)
+                        updateGlobalLine(printer)
                     }
                 }
 
@@ -121,11 +121,11 @@ class YandexFileOps(
                 offset += itemsCount
             }
 
-            updateStatus("")
+            printer.updateStatus("")
         }
 
-        workers.submitDynamic { updateStatus, updateGlobalStatus, submitChild ->
-            scanFolder(fullRootPath, updateStatus, updateGlobalStatus, submitChild)
+        workers.submitDynamic { printer, submitChild ->
+            scanFolder(fullRootPath, printer, submitChild)
         }
 
         workers.awaitDynamic()
@@ -169,11 +169,11 @@ class YandexFileOps(
         from: String,
         to: String,
         srcFileOps: FileOps,
-        updateStatus: (String) -> Unit,
+        printer: WorkerPrinter,
         syncStatus: SyncStatus,
     ) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToYandex(action, from, to, updateStatus, syncStatus)
+            is LocalFileOps -> uploadToYandex(action, from, to, printer, syncStatus)
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -248,10 +248,10 @@ class YandexFileOps(
         action: String,
         from: String,
         to: String,
-        updateStatus: (String) -> Unit,
+        printer: WorkerPrinter,
         syncStatus: SyncStatus,
     ) {
-        val sl = StatusListener(action, from, updateStatus, syncStatus)
+        val sl = StatusListener(action, from, printer, syncStatus)
         try {
             yandex.uploadFile(File(from), to.toYandexPath(), sl::updateProgress)
             sl.printDone()
@@ -270,7 +270,7 @@ class YandexFileOps(
     class StatusListener(
         val action: String,
         val fileName: String,
-        val updateStatus: (String) -> Unit,
+        val printer: WorkerPrinter,
         val syncStatus: SyncStatus,
     ) {
 
@@ -300,17 +300,23 @@ class YandexFileOps(
 
         fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
             val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
-            val dotsCount = (prc * 90).toInt()
-            var progressBar = ".".repeat(dotsCount).padEnd(90)
+
+            val w = printer.width
+            val fixedParts = 35
+            val available = (w - fixedParts).coerceAtLeast(30)
+            val fileNameLen = (available * 35 / 100).coerceIn(20, 60)
+            val progressBarLen = (available - fileNameLen).coerceAtLeast(10)
+
+            val dotsCount = (prc * progressBarLen).toInt()
+            var progressBar = ".".repeat(dotsCount).padEnd(progressBarLen)
 
             val prediction = speedCalculator.predict(lastTotal)
-            if (prediction != null) {
+            if (prediction != null && prediction.length < progressBarLen) {
                 progressBar = prediction + progressBar.substring(prediction.length)
             }
 
             if (isDone) progressBar += " ${Icons.CHECK} DONE "
 
-            val fileNameLen = 50
             val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
             val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
@@ -324,7 +330,7 @@ class YandexFileOps(
             } else {
                 "$styledAction $shortName [$styledPct] ${style("${Icons.CROSS} Error: ${err.toLog()}", Color.ERROR)}"
             }
-            updateStatus(status)
+            printer.updateStatus(status)
 
             syncStatus.formatProgress()
         }

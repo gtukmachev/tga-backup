@@ -7,6 +7,8 @@ import tga.backup.log.logWrap
 import tga.backup.terminal.Color
 import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
+import tga.backup.utils.TaskWithStatus
+import tga.backup.utils.WorkerPrinter
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -58,9 +60,9 @@ abstract class FileOps(
             val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
             val action = if (override) "overriding" else "copying   "
 
-            futures.add(workers.submit { updateStatus, _ ->
-                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, updateStatus, syncStatus)
-            })
+            futures.add(workers.submit(TaskWithStatus { printer ->
+                if (!dryRun) copyFile(action, srcPath, dstPath, srcFileOps, printer, syncStatus)
+            }))
         }
         workers.waitForCompletion()
 
@@ -104,14 +106,14 @@ abstract class FileOps(
         // Phase 1: delete files in parallel
         val fileFutures = files.map { fileInfo ->
             val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
-            workers.submit { updateStatus, _ ->
-                updateStatus("deleting file: $dstPath")
+            workers.submit(TaskWithStatus { printer ->
+                printer.updateStatus("deleting file: $dstPath")
                 if (!dryRun) deleteFileOrFolder(dstPath)
                 deletedFileCount.incrementAndGet()
                 deletedFileSize.addAndGet(fileInfo.size)
                 updateGlobal()
-                updateStatus("")
-            }
+                printer.updateStatus("")
+            })
         }
         fileFutures.forEach { results.add(it.get()) }
 
@@ -123,13 +125,13 @@ abstract class FileOps(
         for ((_, levelFolders) in foldersByDepth) {
             val levelFutures = levelFolders.map { fileInfo ->
                 val dstPath = "${dstFolder}${filesSeparator}${fileInfo.name}"
-                workers.submit { updateStatus, _ ->
-                    updateStatus("deleting folder: $dstPath")
+                workers.submit(TaskWithStatus { printer ->
+                    printer.updateStatus("deleting folder: $dstPath")
                     if (!dryRun) deleteFileOrFolder(dstPath)
                     deletedFolderCount.incrementAndGet()
                     updateGlobal()
-                    updateStatus("")
-                }
+                    printer.updateStatus("")
+                })
             }
             levelFutures.forEach { results.add(it.get()) }
         }
@@ -164,7 +166,7 @@ abstract class FileOps(
         from: String,
         to: String,
         srcFileOps: FileOps,
-        updateStatus: (String) -> Unit,
+        printer: WorkerPrinter,
         syncStatus: SyncStatus,
     )
     protected abstract fun deleteFileOrFolder(path: String)

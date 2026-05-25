@@ -3,6 +3,7 @@ package tga.backup.files
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tga.backup.utils.ConsoleMultiThreadWorkers
+import tga.backup.utils.WorkerPrinter
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -17,7 +18,7 @@ class DeleteFilesParallelTest {
 
         override fun getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> = emptySet()
         override fun mkDirs(dirPath: String) {}
-        override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, updateStatus: (String) -> Unit, syncStatus: SyncStatus) {}
+        override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, printer: WorkerPrinter, syncStatus: SyncStatus) {}
         override fun moveFileOrFolder(fromPath: String, toPath: String) {}
         override fun close() {}
 

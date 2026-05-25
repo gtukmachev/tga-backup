@@ -16,7 +16,7 @@ fun main() {
 
     val futures: List<Future<Result<String>>> = (1..totalTasks)
         .map { n ->
-            workers.submit { updateStatus, updateGlobalStatus ->
+            workers.submit { printer ->
                 var message = "Task $n - "
                 val speed = 100L + Random.nextLong(200)
                 repeat(iterationsPerTask) { i ->
@@ -28,11 +28,11 @@ fun main() {
                         else -> Color.SUCCESS
                     }
                     message += "*"
-                    updateStatus(style(message, color))
+                    printer.updateStatus(style(message, color))
 
                     val currentTotal = totalProgress.incrementAndGet()
                     val globalRatio = (currentTotal.toDouble() / maxProgress) * 100
-                    updateGlobalStatus("${style("Total progress:", bold = true)} ${style("${"%.2f".format(globalRatio)}%", Color.ACCENT)}")
+                    printer.updateGlobalStatus("${style("Total progress:", bold = true)} ${style("${"%.2f".format(globalRatio)}%", Color.ACCENT)}")
 
                     Thread.sleep(speed)
                 }

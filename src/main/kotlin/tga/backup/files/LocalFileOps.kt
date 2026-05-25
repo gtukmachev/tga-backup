@@ -6,6 +6,7 @@ import tga.backup.terminal.Color
 import tga.backup.terminal.Icons
 import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
+import tga.backup.utils.WorkerPrinter
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
@@ -18,22 +19,22 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
             getFilesSet(rootPath: String, throwIfNotExist: Boolean): Set<FileInfo> {
         val workers = ConsoleMultiThreadWorkers<Set<FileInfo>>(1) // single thread - we use this engine only for status printing
 
-        val result = workers.submit { updateStatus, updateGlobalStatus ->
+        val result = workers.submit { printer ->
             val rootFile = File(rootPath)
             if (!rootFile.exists()) {
                 if (throwIfNotExist) throw RuntimeException("Source directory does not exist: $rootPath")
                 return@submit emptySet()
             }
-            val localFiles = rootFile.listFilesRecursive(HashSet(), "", updateStatus, updateGlobalStatus)
+            val localFiles = rootFile.listFilesRecursive(HashSet(), "", printer)
             val totalSize: Long = localFiles.sumOf { it.size }
             val numberOfFiles = localFiles.sumOf { if (it.isDirectory) 0L else 1L }
-            updateGlobalStatus("Listed files: ${formatNumber(numberOfFiles)} [total size: ${formatFileSize(totalSize)}]")
+            printer.updateGlobalStatus("Listed files: ${formatNumber(numberOfFiles)} [total size: ${formatFileSize(totalSize)}]")
 
             println("\n\nScanning files content (building md5 hashes):\n\n")
 
             val rootPathWithSeparator = if (rootPath.endsWith(filesSeparator)) rootPath else "$rootPath$filesSeparator"
 
-            val syncStatus = SyncStatus(totalSize, AtomicLong(0L), updateGlobalStatus)
+            val syncStatus = SyncStatus(totalSize, AtomicLong(0L), printer::updateGlobalStatus)
 
             // calculating md5 hash for each file (slow operation)
             val filesByFolder = localFiles.filter { !it.isDirectory }.groupBy {
@@ -47,7 +48,7 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
 
                 for (it in filesInFolder) {
                     syncStatus.formatProgress()
-                    updateStatus(it.name)
+                    printer.updateStatus(it.name)
                     try {
                         var md5 = cache.getMd5(it)
                         if (md5 == null) {
@@ -77,7 +78,7 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         File(dirPath).mkdirs()
     }
 
-    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, updateStatus: (String) -> Unit, syncStatus: SyncStatus) {
+    override fun copyFile(action: String, from: String, to: String, srcFileOps: FileOps, printer: WorkerPrinter, syncStatus: SyncStatus) {
         when (srcFileOps) {
             is LocalFileOps -> {
                 val fFrom = File(from)
@@ -86,10 +87,10 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
                 syncStatus.formatProgress()
             }
             is YandexFileOps -> {
-                downloadFromYandex(action, from, to, srcFileOps, updateStatus, syncStatus)
+                downloadFromYandex(action, from, to, srcFileOps, printer, syncStatus)
             }
             is GDriveFileOps -> {
-                downloadFromGDrive(action, from, to, srcFileOps, updateStatus, syncStatus)
+                downloadFromGDrive(action, from, to, srcFileOps, printer, syncStatus)
             }
             else -> throw CopyDirectionIsNotSupportedYet()
         }
@@ -100,10 +101,10 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         from: String,
         to: String,
         srcFileOps: YandexFileOps,
-        updateStatus: (String) -> Unit,
+        printer: WorkerPrinter,
         syncStatus: SyncStatus,
     ) {
-        val sl = StatusListener(action, from, updateStatus, syncStatus)
+        val sl = StatusListener(action, from, printer, syncStatus)
         try {
             srcFileOps.downloadFile(from, File(to), sl::updateProgress)
             sl.printDone()
@@ -119,10 +120,10 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         from: String,
         to: String,
         srcFileOps: GDriveFileOps,
-        updateStatus: (String) -> Unit,
+        printer: WorkerPrinter,
         syncStatus: SyncStatus,
     ) {
-        val sl = StatusListener(action, from, updateStatus, syncStatus)
+        val sl = StatusListener(action, from, printer, syncStatus)
         try {
             srcFileOps.downloadFile(from, File(to), sl::updateProgress)
             sl.printDone()
@@ -136,7 +137,7 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
     class StatusListener(
         val action: String,
         val fileName: String,
-        val updateStatus: (String) -> Unit,
+        val printer: WorkerPrinter,
         val syncStatus: SyncStatus,
     ) {
 
@@ -166,17 +167,23 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
 
         fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
             val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
-            val dotsCount = (prc * 90).toInt()
-            var progressBar = ".".repeat(dotsCount).padEnd(90)
+
+            val w = printer.width
+            val fixedParts = 35
+            val available = (w - fixedParts).coerceAtLeast(30)
+            val fileNameLen = (available * 35 / 100).coerceIn(20, 60)
+            val progressBarLen = (available - fileNameLen).coerceAtLeast(10)
+
+            val dotsCount = (prc * progressBarLen).toInt()
+            var progressBar = ".".repeat(dotsCount).padEnd(progressBarLen)
 
             val prediction = speedCalculator.predict(lastTotal)
-            if (prediction != null) {
+            if (prediction != null && prediction.length < progressBarLen) {
                 progressBar = prediction + progressBar.substring(prediction.length)
             }
 
             if (isDone) progressBar += " ${Icons.CHECK} DONE "
 
-            val fileNameLen = 50
             val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
             val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
@@ -186,7 +193,7 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
             val styledSpeed = style("[$speedStr/s]", Color.MUTED)
             val styledBar = if (isDone) style(progressBar, Color.SUCCESS) else progressBar
             val errStr = if (err != null) style(" ${Icons.CROSS} ERROR: ${err.message}", Color.ERROR) else ""
-            updateStatus("$styledAction: $shortName $styledPct $styledSpeed $styledBar$errStr")
+            printer.updateStatus("$styledAction: $shortName $styledPct $styledSpeed $styledBar$errStr")
             syncStatus.formatProgress()
         }
     }
@@ -202,8 +209,8 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
     override fun close() {
     }
 
-    private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String, updateStatus: (String) -> Unit, updateGlobalStatus: (String) -> Unit): Set<FileInfo> {
-        updateStatus("Listing: ${this.path}")
+    private fun File.listFilesRecursive(outSet: MutableSet<FileInfo>, path: String, printer: WorkerPrinter): Set<FileInfo> {
+        printer.updateStatus("Listing: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
             if (it.name == ".md5") return@forEach
@@ -225,10 +232,10 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         content.forEach {
             val fullPath = path + it.name
             if (it.isDirectory && !isExcluded(it.name, fullPath)) {
-                it.listFilesRecursive(outSet, fullPath + filesSeparator, updateStatus, updateGlobalStatus)
+                it.listFilesRecursive(outSet, fullPath + filesSeparator, printer)
             }
         }
-        updateGlobalStatus("Listed files: ${formatNumber(outSet.size)}]")
+        printer.updateGlobalStatus("Listed files: ${formatNumber(outSet.size)}]")
         return outSet
     }
 

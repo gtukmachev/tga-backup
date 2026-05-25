@@ -9,19 +9,18 @@ import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
+interface WorkerPrinter {
+    val width: Int
+    fun updateStatus(status: String)
+    fun updateGlobalStatus(status: String)
+}
+
 fun interface TaskWithStatus<T> {
-    fun run(
-        updateStatus: (String) -> Unit,
-        updateGlobalStatus: (String) -> Unit
-    ): T
+    fun run(printer: WorkerPrinter): T
 }
 
 fun interface DynamicTask<T> {
-    fun run(
-        updateStatus: (String) -> Unit,
-        updateGlobalStatus: (String) -> Unit,
-        submitChild: (DynamicTask<T>) -> Unit
-    ): T
+    fun run(printer: WorkerPrinter, submitChild: (DynamicTask<T>) -> Unit): T
 }
 
 class ConsoleMultiThreadWorkers<T>(
@@ -59,10 +58,12 @@ class ConsoleMultiThreadWorkers<T>(
             activeTasks.incrementAndGet()
             var lastStatus = ""
             try {
-                val result = task.run(
-                    { status -> lastStatus = status; outputStatus(lineIndex, status) },
-                    { globalStatus -> outputGlobalStatus(globalStatus) }
-                )
+                val printer = object : WorkerPrinter {
+                    override val width: Int get() = Terminal.width
+                    override fun updateStatus(status: String) { lastStatus = status; outputStatus(lineIndex, status) }
+                    override fun updateGlobalStatus(status: String) { outputGlobalStatus(status) }
+                }
+                val result = task.run(printer)
                 if (lastStatus.isNotEmpty()) outputStatus(lineIndex, lastStatus, force = true)
                 Result.success(result)
             } catch (e: Throwable) {
@@ -72,16 +73,6 @@ class ConsoleMultiThreadWorkers<T>(
                 activeTasks.decrementAndGet()
             }
         })
-    }
-
-
-    fun submit(
-            task: (
-                    updateStatus: (String) -> Unit,
-                    updateGlobalStatus: (String) -> Unit
-                ) -> T
-    ): Future<Result<T>> {
-        return submit(TaskWithStatus { updateStatus, updateGlobalStatus -> task(updateStatus, updateGlobalStatus) })
     }
 
     fun submitDynamic(task: DynamicTask<T>) {
@@ -94,11 +85,12 @@ class ConsoleMultiThreadWorkers<T>(
             var lastStatus = ""
             try {
                 if (dynamicError.get() != null) return@execute
-                task.run(
-                    { status -> lastStatus = status; outputStatus(lineIndex, status) },
-                    { globalStatus -> outputGlobalStatus(globalStatus) },
-                    { child -> submitDynamic(child) }
-                )
+                val printer = object : WorkerPrinter {
+                    override val width: Int get() = Terminal.width
+                    override fun updateStatus(status: String) { lastStatus = status; outputStatus(lineIndex, status) }
+                    override fun updateGlobalStatus(status: String) { outputGlobalStatus(status) }
+                }
+                task.run(printer) { child -> submitDynamic(child) }
                 if (lastStatus.isNotEmpty()) outputStatus(lineIndex, lastStatus, force = true)
             } catch (e: Throwable) {
                 dynamicError.compareAndSet(null, e)
@@ -111,13 +103,12 @@ class ConsoleMultiThreadWorkers<T>(
 
     fun submitDynamic(
         task: (
-            updateStatus: (String) -> Unit,
-            updateGlobalStatus: (String) -> Unit,
+            printer: WorkerPrinter,
             submitChild: (DynamicTask<T>) -> Unit
         ) -> Unit
     ) {
-        submitDynamic(DynamicTask { updateStatus, updateGlobalStatus, submitChild ->
-            task(updateStatus, updateGlobalStatus, submitChild)
+        submitDynamic(DynamicTask { printer, submitChild ->
+            task(printer, submitChild)
             @Suppress("UNCHECKED_CAST")
             Unit as T
         })

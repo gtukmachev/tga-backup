@@ -12,6 +12,7 @@ import tga.backup.terminal.Icons
 import tga.backup.terminal.style
 import tga.backup.utils.ConsoleMultiThreadWorkers
 import tga.backup.utils.DynamicTask
+import tga.backup.utils.WorkerPrinter
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -57,23 +58,22 @@ class GDriveFileOps(
 
         val workers = ConsoleMultiThreadWorkers<Unit>(20)
 
-        fun updateGlobalLine(updateGlobalStatus: (String) -> Unit) {
+        fun updateGlobalLine(printer: WorkerPrinter) {
             val count = files.size
             val size = totalSize.get()
-            updateGlobalStatus("${style("Scanning GDrive:", bold = true)} ${style(formatNumber(count.toLong()), Color.ACCENT)} files ${style("[${formatFileSize(size)}]", Color.MUTED)}")
+            printer.updateGlobalStatus("${style("Scanning GDrive:", bold = true)} ${style(formatNumber(count.toLong()), Color.ACCENT)} files ${style("[${formatFileSize(size)}]", Color.MUTED)}")
         }
 
         fun scanFolder(
             folderId: String,
             relativePath: String,
-            updateStatus: (String) -> Unit,
-            updateGlobalStatus: (String) -> Unit,
+            printer: WorkerPrinter,
             submitChild: (DynamicTask<Unit>) -> Unit
         ) {
             var pageToken: String? = null
             do {
                 val shortPath = relativePath.ifEmpty { "/" }
-                updateStatus("${style("Fetching:", Color.INFO)} $shortPath")
+                printer.updateStatus("${style("Fetching:", Color.INFO)} $shortPath")
                 logger.debug { "Fetching folder: $relativePath (folderId: $folderId)" }
 
                 val (items, nextToken) = gdrive.listFiles(folderId, pageToken)
@@ -106,11 +106,11 @@ class GDriveFileOps(
                     totalSize.addAndGet(size)
                     val fullItemPath = if (cleanPath.isEmpty()) itemRelPath else "$cleanPath/$itemRelPath"
                     pathToIdMap[fullItemPath] = item.id
-                    updateGlobalLine(updateGlobalStatus)
+                    updateGlobalLine(printer)
 
                     if (isDir) {
-                        submitChild(DynamicTask { childStatus, childGlobal, childSubmit ->
-                            scanFolder(item.id, itemRelPath, childStatus, childGlobal, childSubmit)
+                        submitChild(DynamicTask { childPrinter, childSubmit ->
+                            scanFolder(item.id, itemRelPath, childPrinter, childSubmit)
                         })
                     }
                 }
@@ -118,11 +118,11 @@ class GDriveFileOps(
                 pageToken = nextToken
             } while (pageToken != null)
 
-            updateStatus("")
+            printer.updateStatus("")
         }
 
-        workers.submitDynamic { updateStatus, updateGlobalStatus, submitChild ->
-            scanFolder(rootFolderId, "", updateStatus, updateGlobalStatus, submitChild)
+        workers.submitDynamic { printer, submitChild ->
+            scanFolder(rootFolderId, "", printer, submitChild)
         }
 
         workers.awaitDynamic()
@@ -164,11 +164,11 @@ class GDriveFileOps(
         from: String,
         to: String,
         srcFileOps: FileOps,
-        updateStatus: (String) -> Unit,
+        printer: WorkerPrinter,
         syncStatus: SyncStatus,
     ) {
         when (srcFileOps) {
-            is LocalFileOps -> uploadToGDrive(action, from, to, updateStatus, syncStatus)
+            is LocalFileOps -> uploadToGDrive(action, from, to, printer, syncStatus)
             else -> throw CopyDirectionIsNotSupportedYet()
         }
     }
@@ -177,10 +177,10 @@ class GDriveFileOps(
         action: String,
         from: String,
         to: String,
-        updateStatus: (String) -> Unit,
+        printer: WorkerPrinter,
         syncStatus: SyncStatus,
     ) {
-        val sl = StatusListener(action, from, updateStatus, syncStatus)
+        val sl = StatusListener(action, from, printer, syncStatus)
         try {
             val cleanTo = to.toGDrivePath()
             val parentPath = cleanTo.substringBeforeLast("/", "")
@@ -209,7 +209,7 @@ class GDriveFileOps(
     class StatusListener(
         val action: String,
         val fileName: String,
-        val updateStatus: (String) -> Unit,
+        val printer: WorkerPrinter,
         val syncStatus: SyncStatus,
     ) {
         var lastLoaded: Long = 0
@@ -238,17 +238,23 @@ class GDriveFileOps(
 
         fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
             val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
-            val dotsCount = (prc * 90).toInt()
-            var progressBar = ".".repeat(dotsCount).padEnd(90)
+
+            val w = printer.width
+            val fixedParts = 35
+            val available = (w - fixedParts).coerceAtLeast(30)
+            val fileNameLen = (available * 35 / 100).coerceIn(20, 60)
+            val progressBarLen = (available - fileNameLen).coerceAtLeast(10)
+
+            val dotsCount = (prc * progressBarLen).toInt()
+            var progressBar = ".".repeat(dotsCount).padEnd(progressBarLen)
 
             val prediction = speedCalculator.predict(lastTotal)
-            if (prediction != null) {
+            if (prediction != null && prediction.length < progressBarLen) {
                 progressBar = prediction + progressBar.substring(prediction.length)
             }
 
             if (isDone) progressBar += " ${Icons.CHECK} DONE "
 
-            val fileNameLen = 50
             val shortName = if (fileName.length > fileNameLen) ("..." + fileName.takeLast(fileNameLen - 3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
             val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
@@ -262,7 +268,7 @@ class GDriveFileOps(
             } else {
                 "$styledAction $shortName [$styledPct] ${style("${Icons.CROSS} Error: ${err.toLog()}", Color.ERROR)}"
             }
-            updateStatus(status)
+            printer.updateStatus(status)
 
             syncStatus.formatProgress()
         }
