@@ -1,6 +1,7 @@
 package tga.backup.files
 
 import java.io.File
+import java.nio.file.Files
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -48,12 +49,25 @@ class Md5Cache(val folder: File) {
         val entry = entries[fileName]
         if (entry != null &&
             entry.size == fileInfo.size &&
-            entry.creationTime == fileInfo.creationTime &&
-            entry.lastModifiedTime == fileInfo.lastModifiedTime
+            entry.creationTime / 1000 == fileInfo.creationTime / 1000 &&
+            entry.lastModifiedTime / 1000 == fileInfo.lastModifiedTime / 1000
         ) {
             return entry.md5
         }
         return null
+    }
+
+    fun cacheMissReason(fileInfo: FileInfo): String {
+        val fileName = File(fileInfo.name).name
+        val entry = entries[fileName] ?: return "not in cache"
+        val mismatches = mutableListOf<String>()
+        if (entry.size != fileInfo.size)
+            mismatches.add("size: cached=${entry.size} actual=${fileInfo.size}")
+        if (entry.creationTime != fileInfo.creationTime)
+            mismatches.add("creationTime: cached=${df.format(Date(entry.creationTime))} actual=${df.format(Date(fileInfo.creationTime))}")
+        if (entry.lastModifiedTime != fileInfo.lastModifiedTime)
+            mismatches.add("lastModified: cached=${df.format(Date(entry.lastModifiedTime))} actual=${df.format(Date(fileInfo.lastModifiedTime))}")
+        return mismatches.joinToString(", ")
     }
 
     fun updateMd5(fileInfo: FileInfo, md5: String) {
@@ -86,6 +100,7 @@ class Md5Cache(val folder: File) {
 
             val maxWidths = IntArray(5) { i -> formattedEntries.maxOf { it[i].length } }
 
+            clearHiddenAttribute(cacheFile)
             cacheFile.bufferedWriter().use { writer ->
                 formattedEntries.forEach { parts ->
                     val line = parts.mapIndexed { i, value ->
@@ -101,5 +116,14 @@ class Md5Cache(val folder: File) {
             }
             modified = false
         }
+    }
+
+    private fun clearHiddenAttribute(file: File) {
+        if (!IS_WINDOWS || !file.exists() || !file.isHidden) return
+        Files.setAttribute(file.toPath(), "dos:hidden", false)
+    }
+
+    companion object {
+        private val IS_WINDOWS = System.getProperty("os.name").lowercase().startsWith("win")
     }
 }

@@ -55,7 +55,7 @@ class Md5CacheTest {
         val cache = Md5Cache(folder)
         cache.updateMd5(fileInfo, "some-md5")
         
-        val changedInfo = fileInfo.copy(lastModifiedTime = 2001L)
+        val changedInfo = fileInfo.copy(lastModifiedTime = 3000L)
         assertThat(cache.getMd5(changedInfo)).isNull()
     }
     

@@ -51,6 +51,7 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
                     try {
                         var md5 = cache.getMd5(it)
                         if (md5 == null) {
+                            println("  md5 recalc: ${it.name} (${cache.cacheMissReason(it)})")
                             md5 = File(rootPathWithSeparator + it.name).calculateMd5()
                             cache.updateMd5(it, md5)
                         }
@@ -205,6 +206,7 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         updateStatus("Listing: ${this.path}")
         val content = this.listFiles() ?: emptyArray()
         content.forEach {
+            if (it.name == ".md5") return@forEach
             val fullPath = path + it.name
             if (isExcluded(it.name, fullPath)) {
                 return@forEach
