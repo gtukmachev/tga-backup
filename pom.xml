@@ -93,6 +93,17 @@
                 <version>1.6.0</version>
                 <configuration>
                     <mainClass>${main.class}</mainClass>
+                    <arguments/>
+                    <systemProperties>
+                        <systemProperty>
+                            <key>stdout.encoding</key>
+                            <value>UTF-8</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>stderr.encoding</key>
+                            <value>UTF-8</value>
+                        </systemProperty>
+                    </systemProperties>
                 </configuration>
             </plugin>
             <plugin>

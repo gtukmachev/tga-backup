@@ -6,6 +6,7 @@ import tga.backup.logo.printLogo
 import tga.backup.params.Params
 import tga.backup.params.readParams
 import tga.backup.scripts.Script
+import tga.backup.terminal.Terminal
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -13,6 +14,7 @@ private val logger = KotlinLogging.logger {  }
 
 fun main(args: Array<String>) {
     try {
+        Terminal.setupUtf8Console()
         System.setProperty("java.rmi.server.hostname", "localhost")
 
         printLogo()
