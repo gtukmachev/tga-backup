@@ -121,6 +121,13 @@ class BackupScript(params: Params) : Script(params) {
                     results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
                     logPhaseDuration("Deleting Files", System.currentTimeMillis() - deleteStart)
                 }
+
+                if (actions.hasMovesOrRenames()) {
+                    logPhase("Moving/Renaming")
+                    val moveStart = System.currentTimeMillis()
+                    results += runMoving(dstFileOps, params, actions)
+                    logPhaseDuration("Moving/Renaming", System.currentTimeMillis() - moveStart)
+                }
             }
 
             logPhaseDuration("Execution Phase", System.currentTimeMillis() - executionStart)

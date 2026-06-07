@@ -8,7 +8,11 @@ data class SyncActionCases(
     val toRenameFiles: Set<Pair<FileInfo, String>> = emptySet(),
     val toMoveFolders: Set<Pair<FileInfo, String>> = emptySet(),
     val toRenameFolders: Set<Pair<FileInfo, String>> = emptySet(),
-)
+) {
+    fun hasMovesOrRenames(): Boolean =
+        toMoveFiles.isNotEmpty() || toRenameFiles.isNotEmpty() ||
+        toMoveFolders.isNotEmpty() || toRenameFolders.isNotEmpty()
+}
 
 fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePatterns: List<String> = emptyList()): SyncActionCases {
     val exclusionMatcher = ExclusionMatcher(excludePatterns)
