@@ -144,8 +144,9 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
         var lastLoaded: Long = 0
         var lastTotal: Long = 1
         var lastUpdateTs: Long = 0
-        val totalSizeStr: String = formatFileSize(syncStatus.totalSize)
         private val speedCalculator = SpeedCalculator()
+        private var spinIndex = 0
+        private val spinChars = charArrayOf('|', '/', '-', '\\')
 
         fun updateProgress(loaded: Long, total: Long) {
             val loadedDelta = loaded - lastLoaded
@@ -167,33 +168,43 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
 
         fun printProgress(err: Throwable? = null, isDone: Boolean = false) {
             val prc = if (lastTotal > 0) (lastLoaded.toDouble() / lastTotal.toDouble()) else 0.0
-
             val w = printer.width
-            val fixedParts = 35
-            val available = (w - fixedParts).coerceAtLeast(30)
-            val fileNameLen = (available * 35 / 100).coerceIn(20, 60)
-            val progressBarLen = (available - fileNameLen).coerceAtLeast(10)
 
-            val dotsCount = (prc * progressBarLen).toInt()
-            var progressBar = ".".repeat(dotsCount).padEnd(progressBarLen)
-
-            val prediction = speedCalculator.predict(lastTotal)
-            if (prediction != null && prediction.length < progressBarLen) {
-                progressBar = prediction + progressBar.substring(prediction.length)
-            }
-
-            if (isDone) progressBar += " ${Icons.CHECK} DONE "
-
-            val shortName = if (fileName.length > fileNameLen) ("..."+fileName.takeLast(fileNameLen-3)) else fileName.padEnd(fileNameLen)
             val percentStr = "%6.2f".format(prc * 100)
             val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
+            val prediction = speedCalculator.predict(lastTotal)
+
+            if (err != null) {
+                val styledAction = style(action, bold = true)
+                val styledPct = style("$percentStr%", Color.ACCENT)
+                printer.updateStatus("$styledAction $fileName $styledPct ${style("${Icons.CROSS} Error: ${err.message}", Color.ERROR)}")
+                syncStatus.formatProgress()
+                return
+            }
+
+            val indicator = if (isDone) "✔" else spinChars[spinIndex++ % spinChars.size].toString()
+            val rightText = " $indicator $percentStr% $speedStr/s${if (prediction != null) " $prediction" else ""}"
+            val rightLen = rightText.length
+
+            val actionPart = "$action "
+            val minBarLen = 10
+            val fileNameBudget = (w - actionPart.length - rightLen - minBarLen - 1).coerceIn(15, 60)
+            val shortName = if (fileName.length > fileNameBudget) ("..." + fileName.takeLast(fileNameBudget - 3)) else fileName
+
+            val leftLen = actionPart.length + shortName.length + 1
+            val barLen = (w - leftLen - rightLen).coerceAtLeast(minBarLen)
+
+            val filledCount = (prc * barLen).toInt()
+            val bar = ".".repeat(filledCount).padEnd(barLen)
 
             val styledAction = style(action, bold = true)
+            val styledBar = if (isDone) style(bar, Color.SUCCESS) else bar
+            val styledIndicator = if (isDone) style(indicator, Color.SUCCESS) else indicator
             val styledPct = style("$percentStr%", Color.ACCENT)
-            val styledSpeed = style("[$speedStr/s]", Color.MUTED)
-            val styledBar = if (isDone) style(progressBar, Color.SUCCESS) else progressBar
-            val errStr = if (err != null) style(" ${Icons.CROSS} ERROR: ${err.message}", Color.ERROR) else ""
-            printer.updateStatus("$styledAction: $shortName $styledPct $styledSpeed $styledBar$errStr")
+            val styledSpeed = style("$speedStr/s", Color.MUTED)
+            val styledPrediction = if (prediction != null) " $prediction" else ""
+
+            printer.updateStatus("$styledAction $shortName $styledBar $styledIndicator $styledPct $styledSpeed$styledPrediction")
             syncStatus.formatProgress()
         }
     }
