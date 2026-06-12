@@ -30,7 +30,7 @@ class Md5Cache(val folder: File) {
                 val parts = line.split("\t")
                 if (parts.size == 5) {
                     try {
-                        val name = parts[0].trim()
+                        val name = parts[0].trimEnd()
                         val size = parts[1].trim().toLong()
                         val creationTime = df.parse(parts[2].trim()).time
                         val lastModifiedTime = df.parse(parts[3].trim()).time

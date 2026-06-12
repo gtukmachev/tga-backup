@@ -60,6 +60,43 @@ class Md5CacheTest {
     }
     
     @Test
+    fun `test cache hit for filename with leading space`() {
+        val folder = tempDir.toFile()
+
+        val fileInfo = FileInfo(
+            name = "2014-05-12/ 2014-05-12_6337.CR2",
+            isDirectory = false,
+            size = 25_000_000L,
+            creationTime = 1_400_000_000_000L,
+            lastModifiedTime = 1_400_000_000_000L
+        )
+        val md5 = "abc123def456"
+
+        val cache = Md5Cache(folder)
+        cache.updateMd5(fileInfo, md5)
+        cache.save()
+
+        // Verify the .md5 file content to see the exact stored name
+        val cacheFile = File(folder, ".md5")
+        val savedLine = cacheFile.readText()
+        val savedName = savedLine.split("\t")[0]
+        assertThat(savedName.trimEnd())
+            .describedAs("Saved filename should preserve the leading space")
+            .isEqualTo(" 2014-05-12_6337.CR2")
+
+        // Reload from disk and try to get a cache hit
+        val cache2 = Md5Cache(folder)
+        val result = cache2.getMd5(fileInfo)
+
+        assertThat(result)
+            .describedAs(
+                "Cache should hit for filename with leading space after save/reload. " +
+                "Miss reason: ${cache2.cacheMissReason(fileInfo)}"
+            )
+            .isEqualTo(md5)
+    }
+
+    @Test
     fun `test column alignment in cache file`() {
         val folder = tempDir.toFile()
         val cache = Md5Cache(folder)
