@@ -152,7 +152,10 @@ fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePa
         }
     }
     
-    // Actually, let's just use the sets we've been maintaining
+    // 3. Remove folders from delete list if they contain move/rename source files
+    val allMoveSourcePaths = (toMoveFiles.map { it.first.name } + toRenameFiles.map { it.first.name }).toSet()
+    toDeleteFiles.removeIf { it.isDirectory && allMoveSourcePaths.any { src -> src.startsWith(it.name + "/") } }
+
     return SyncActionCases(
         toAddFiles = toAddFiles.toSet(),
         toDeleteFiles = toDeleteFiles.toSet(),

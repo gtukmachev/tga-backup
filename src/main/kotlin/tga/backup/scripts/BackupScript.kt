@@ -115,18 +115,18 @@ class BackupScript(params: Params) : Script(params) {
                     logPhaseDuration("Overriding Files", System.currentTimeMillis() - overrideStart)
                 }
 
-                if (!params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
-                    logPhase("Deleting Files")
-                    val deleteStart = System.currentTimeMillis()
-                    results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
-                    logPhaseDuration("Deleting Files", System.currentTimeMillis() - deleteStart)
-                }
-
                 if (actions.hasMovesOrRenames()) {
                     logPhase("Moving/Renaming")
                     val moveStart = System.currentTimeMillis()
                     results += runMoving(dstFileOps, params, actions)
                     logPhaseDuration("Moving/Renaming", System.currentTimeMillis() - moveStart)
+                }
+
+                if (!params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
+                    logPhase("Deleting Files")
+                    val deleteStart = System.currentTimeMillis()
+                    results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+                    logPhaseDuration("Deleting Files", System.currentTimeMillis() - deleteStart)
                 }
             }
 

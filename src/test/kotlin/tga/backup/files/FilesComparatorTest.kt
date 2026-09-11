@@ -321,7 +321,52 @@ class FilesComparatorTest {
         assertThat(result.toMoveFiles).containsExactly(
             FileInfo("very/long/nested/folder/short.txt", false, 100L).apply { setupMd5("md5-1") } to "short.txt"
         )
-        // The folder should be in delete list (not detected as moved because only one file)
-        assertThat(result.toDeleteFiles).contains(FileInfo("very/long/nested/folder", true, 10L))
+        // The folder should NOT be in delete list because it contains a move-source file
+        assertThat(result.toDeleteFiles).doesNotContain(FileInfo("very/long/nested/folder", true, 10L))
+    }
+
+    @Test
+    fun `test parent folder excluded from delete when it contains move-source files`() {
+        // Reproduces the BUG scenario: folder has some files matched as moves (CR3)
+        // and some truly orphaned (JPG). The folder-level move detection fails because
+        // not ALL files match. The folder must NOT be in toDeleteFiles because a
+        // recursive folder delete would destroy the move-source files.
+        val srcFiles = setOf(
+            FileInfo("2026", true, 10L),
+            FileInfo("2026/2026-09-10", true, 10L),
+            FileInfo("2026/2026-09-10/photo1.CR3", false, 1000L).apply { setupMd5("md5-cr3-1") },
+            FileInfo("2026/2026-09-10/photo2.CR3", false, 2000L).apply { setupMd5("md5-cr3-2") },
+        )
+        val dstFiles = setOf(
+            FileInfo("_new", true, 10L),
+            FileInfo("_new/2026", true, 10L),
+            FileInfo("_new/2026/2026-09-10", true, 10L),
+            FileInfo("_new/2026/2026-09-10/photo1.CR3", false, 1000L).apply { setupMd5("md5-cr3-1") },
+            FileInfo("_new/2026/2026-09-10/photo2.CR3", false, 2000L).apply { setupMd5("md5-cr3-2") },
+            FileInfo("_new/2026/2026-09-10/photo1.JPG", false, 500L).apply { setupMd5("md5-jpg-1") },
+            FileInfo("_new/2026/2026-09-10/photo2.JPG", false, 600L).apply { setupMd5("md5-jpg-2") },
+        )
+
+        val result = compareSrcAndDst(srcFiles, dstFiles)
+
+        // CR3 files should be detected as moves
+        assertThat(result.toMoveFiles).containsExactlyInAnyOrder(
+            FileInfo("_new/2026/2026-09-10/photo1.CR3", false, 1000L).apply { setupMd5("md5-cr3-1") } to "2026/2026-09-10/photo1.CR3",
+            FileInfo("_new/2026/2026-09-10/photo2.CR3", false, 2000L).apply { setupMd5("md5-cr3-2") } to "2026/2026-09-10/photo2.CR3",
+        )
+
+        // JPG files should be in delete list (truly orphaned)
+        assertThat(result.toDeleteFiles).contains(
+            FileInfo("_new/2026/2026-09-10/photo1.JPG", false, 500L).apply { setupMd5("md5-jpg-1") },
+            FileInfo("_new/2026/2026-09-10/photo2.JPG", false, 600L).apply { setupMd5("md5-jpg-2") },
+        )
+
+        // Parent folders must NOT be in delete list — they contain move-source children
+        val deleteFolderNames = result.toDeleteFiles.filter { it.isDirectory }.map { it.name }
+        assertThat(deleteFolderNames).doesNotContain(
+            "_new/2026/2026-09-10",
+            "_new/2026",
+            "_new",
+        )
     }
 }
