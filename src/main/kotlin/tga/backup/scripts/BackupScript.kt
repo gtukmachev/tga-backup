@@ -41,9 +41,7 @@ class BackupScript(params: Params) : Script(params) {
 
         try {
             logPhase("Comparison & Plan Building")
-            val comparisonStart = System.currentTimeMillis()
             val actions = compareSrcAndDst(srcFiles = srcFiles, dstFiles = dstFiles, excludePatterns = params.exclude)
-            logPhaseDuration("Comparison & Plan Building", System.currentTimeMillis() - comparisonStart)
 
             val excludedFiles = srcFiles.filter { it.readException != null }
 
@@ -92,45 +90,32 @@ class BackupScript(params: Params) : Script(params) {
             }
 
             logPhase("Execution Phase")
-            val executionStart = System.currentTimeMillis()
             val results = mutableListOf<Result<Unit>>()
 
             if (continueAnswer in setOf("m", "M")) {
                 logPhase("Moving/Renaming")
-                val moveStart = System.currentTimeMillis()
                 results += runMoving(dstFileOps, params, actions)
-                logPhaseDuration("Moving/Renaming", System.currentTimeMillis() - moveStart)
             } else {
                 if (actions.toAddFiles.isNotEmpty()) {
                     logPhase("Copying Files")
-                    val copyStart = System.currentTimeMillis()
                     results += runCopying(srcFileOps, dstFileOps, params, actions.toAddFiles, override = false)
-                    logPhaseDuration("Copying Files", System.currentTimeMillis() - copyStart)
                 }
 
                 if (!params.noOverriding && actions.toOverrideFiles.isNotEmpty()) {
                     logPhase("Overriding Files")
-                    val overrideStart = System.currentTimeMillis()
                     results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
-                    logPhaseDuration("Overriding Files", System.currentTimeMillis() - overrideStart)
                 }
 
                 if (actions.hasMovesOrRenames()) {
                     logPhase("Moving/Renaming")
-                    val moveStart = System.currentTimeMillis()
                     results += runMoving(dstFileOps, params, actions)
-                    logPhaseDuration("Moving/Renaming", System.currentTimeMillis() - moveStart)
                 }
 
                 if (!params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
                     logPhase("Deleting Files")
-                    val deleteStart = System.currentTimeMillis()
                     results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
-                    logPhaseDuration("Deleting Files", System.currentTimeMillis() - deleteStart)
                 }
             }
-
-            logPhaseDuration("Execution Phase", System.currentTimeMillis() - executionStart)
 
             if (excludedFiles.isNotEmpty()) {
                 println("\nEXCLUDED FILES (due to read errors):")

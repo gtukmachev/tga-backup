@@ -2,7 +2,6 @@ package tga.backup.files
 
 import tga.backup.log.formatFileSize
 import tga.backup.log.formatNumber
-import tga.backup.log.formatTime
 import tga.backup.log.logWrap
 import tga.backup.terminal.Color
 import tga.backup.terminal.style
@@ -179,7 +178,6 @@ abstract class FileOps(
 
 class SpeedCalculator(val windowMillis: Long = 10000, private val clock: () -> Long = { System.currentTimeMillis() }) {
     private val stats = ConcurrentLinkedDeque<Pair<Long, Long>>()
-    private val startTime = clock()
 
     @Synchronized
     fun addProgress(loaded: Long) {
@@ -200,27 +198,6 @@ class SpeedCalculator(val windowMillis: Long = 10000, private val clock: () -> L
         if (durationMs <= 0L) return 0
         val bytes = last.second - first.second
         return (bytes * 1000) / durationMs
-    }
-
-    @Synchronized
-    fun predict(totalSize: Long): String? {
-        val now = clock()
-        if (now - startTime < 3000) return null
-
-        val speed = getSpeed()
-        if (speed <= 0) return null
-
-        val last = stats.peekLast() ?: return null
-        val loaded = last.second
-        val remaining = totalSize - loaded
-        if (remaining <= 0) return null
-
-        val remainingMs = (remaining * 1000) / speed
-        val totalMs = (totalSize * 1000) / speed
-
-        if (totalMs < 10000) return null
-
-        return "(${formatTime(totalMs)} | ${formatTime(remainingMs)})"
     }
 }
 
@@ -247,13 +224,11 @@ class SyncStatus(
         val loadedSizeStr = formatFileSize(loadedGlobal)
         val totalSizeStr = formatFileSize(totalSize)
         val speedStr = formatFileSize(getGlobalSpeed())
-        val prediction = speedCalculator.predict(totalSize)
-        val predictionStr = (prediction ?: "").padStart(30)
 
         val styledLabel = style("Global status:", bold = true)
         val styledPct = style("${globalPrc}%", Color.ACCENT)
         val styledSizes = style("$loadedSizeStr / $totalSizeStr", Color.MUTED)
         val styledSpeed = style("[$speedStr/s]", Color.INFO)
-        updateGlobalStatus("$styledLabel $styledPct  $styledSizes $predictionStr $styledSpeed")
+        updateGlobalStatus("$styledLabel $styledPct  $styledSizes $styledSpeed")
     }
 }

@@ -62,33 +62,11 @@ fun alignRight(minLength: Int, vararg strs: String): Array<String> {
 
 fun formatNumbersAndAlignRight(minLength: Int, vararg nums: Number) = alignRight(minLength, *nums.map { formatNumber(it) }.toTypedArray())
 
-fun formatTime(millis: Long): String {
-    val totalSeconds = millis / 1000
-    val days = totalSeconds / 86400
-    val hours = (totalSeconds % 86400) / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-
-    fun format(num: Long, unit: String) = "${num.toString().padStart(2)}$unit"
-
-    return when {
-        days > 0 -> "${format(days, "d")} ${format(hours, "h")} ${format(minutes, "m")} ${format(seconds, "s")}"
-        hours > 0 -> "${format(hours, "h")} ${format(minutes, "m")} ${format(seconds, "s")}"
-        minutes > 0 -> "${format(minutes, "m")} ${format(seconds, "s")}"
-        else -> format(seconds, "s")
-    }
-}
-
 private val logger = io.github.oshai.kotlinlogging.KotlinLogging.logger {  }
 
 fun logPhase(phaseName: String) {
     val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
     logger.warn { "[$timestamp] ${Icons.ARROW} Phase: ${style(phaseName, bold = true)}" }
-}
-
-fun logPhaseDuration(phaseName: String, durationMs: Long) {
-    val formatted = formatTime(durationMs)
-    logger.warn { "${Icons.CHECK} Phase '$phaseName' completed in ${style(formatted, Color.MUTED)}" }
 }
 
 fun logFilesList(prefix: String, filesList: Set<FileInfo>) {

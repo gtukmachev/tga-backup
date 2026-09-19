@@ -243,7 +243,6 @@ class GDriveFileOps(
 
             val percentStr = "%6.2f".format(prc * 100)
             val speedStr = formatFileSize(speedCalculator.getSpeed()).padStart(7)
-            val prediction = speedCalculator.predict(lastTotal)
 
             if (err != null) {
                 val styledAction = style(action, bold = true)
@@ -254,7 +253,7 @@ class GDriveFileOps(
             }
 
             val indicator = if (isDone) "✔" else spinChars[spinIndex++ % spinChars.size].toString()
-            val rightText = " $indicator $percentStr% $speedStr/s${if (prediction != null) " $prediction" else ""}"
+            val rightText = " $indicator $percentStr% $speedStr/s"
             val rightLen = rightText.length
 
             val actionPart = "$action "
@@ -273,9 +272,8 @@ class GDriveFileOps(
             val styledIndicator = if (isDone) style(indicator, Color.SUCCESS) else indicator
             val styledPct = style("$percentStr%", Color.ACCENT)
             val styledSpeed = style("$speedStr/s", Color.MUTED)
-            val styledPrediction = if (prediction != null) " $prediction" else ""
 
-            printer.updateStatus("$styledAction $shortName $styledBar $styledIndicator $styledPct $styledSpeed$styledPrediction")
+            printer.updateStatus("$styledAction $shortName $styledBar $styledIndicator $styledPct $styledSpeed")
             syncStatus.formatProgress()
         }
     }
