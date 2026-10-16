@@ -17,6 +17,7 @@ class YandexResumableUploader(
 
     private val logger = KotlinLogging.logger {  }
     private val gson = Gson()
+    private val retryableCodes = setOf(429, 500, 502, 503, 504)
 
     fun getResources(path: String, limit: Int, offset: Int): JsonObject {
         val url = "https://cloud-api.yandex.net/v1/disk/resources".toHttpUrl().newBuilder()
@@ -32,9 +33,34 @@ class YandexResumableUploader(
             .get()
             .build()
 
-        http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw YandexResponseException("Error getting resources", response, dstFilePath = path)
-            return gson.fromJson(response.body?.charStream(), JsonObject::class.java)
+        return withRetry("getting resources of $path") {
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw YandexResponseException("Error getting resources", response, dstFilePath = path)
+                gson.fromJson(response.body?.charStream(), JsonObject::class.java)
+            }
+        }
+    }
+
+    /**
+     * Retries idempotent requests on transient failures (5xx, 429, network errors) with exponential backoff.
+     */
+    private fun <T> withRetry(description: String, maxRetries: Int = 5, action: () -> T): T {
+        var attempt = 0
+        while (true) {
+            try {
+                return action()
+            } catch (e: Exception) {
+                val retryable = when (e) {
+                    is YandexResponseException -> e.code in retryableCodes
+                    is java.io.IOException -> true
+                    else -> false
+                }
+                if (!retryable || attempt >= maxRetries) throw e
+                val delaySeconds = 1L shl attempt
+                attempt++
+                logger.warn { "Retry $attempt/$maxRetries ($description: ${e.message?.lineSequence()?.firstOrNull { it.isNotBlank() }}), waiting ${delaySeconds}s..." }
+                Thread.sleep(delaySeconds * 1000)
+            }
         }
     }
 
@@ -112,9 +138,11 @@ class YandexResumableUploader(
                 .get()
                 .build()
 
-            val status = http.newCall(request).execute().use { r ->
-                if (!r.isSuccessful) throw YandexResponseException("Error getting operation status", r, dstFilePath = description)
-                gson.fromJson(r.body?.charStream(), JsonObject::class.java)?.get("status")?.asString
+            val status = withRetry("getting operation status: $description") {
+                http.newCall(request).execute().use { r ->
+                    if (!r.isSuccessful) throw YandexResponseException("Error getting operation status", r, dstFilePath = description)
+                    gson.fromJson(r.body?.charStream(), JsonObject::class.java)?.get("status")?.asString
+                }
             }
 
             when (status) {
