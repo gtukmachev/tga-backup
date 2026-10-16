@@ -37,6 +37,13 @@ class ParamsTest {
     }
 
     @Test
+    fun `test scan threads parameter`() {
+        assertThat(readParams(arrayOf("-sr", "src", "-dr", "dst", "-ts", "7")).scanThreads).isEqualTo(7)
+        assertThat(readParams(arrayOf("-sr", "src", "-dr", "dst", "--threads-scan", "8")).scanThreads).isEqualTo(8)
+        assertThat(readParams(arrayOf("-sr", "src", "-dr", "dst")).scanThreads).isEqualTo(20)
+    }
+
+    @Test
     fun `test readParams with default path`() {
         val args = arrayOf("-sr", "src_root", "-dr", "dst_root")
         val params = readParams(args)

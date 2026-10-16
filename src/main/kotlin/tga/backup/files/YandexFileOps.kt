@@ -22,7 +22,8 @@ class YandexFileOps(
     val maxPageSize: Int  = 5000,
     val profile: String,
     val useCache: Boolean,
-    excludePatterns: List<String> = emptyList()
+    excludePatterns: List<String> = emptyList(),
+    private val scanThreads: Int = 20,
 ) : FileOps(filesSeparator = "/", excludePatterns) {
 
     private val logger = KotlinLogging.logger {  }
@@ -47,7 +48,7 @@ class YandexFileOps(
         val files = ConcurrentHashMap.newKeySet<FileInfo>()
         val totalSize = AtomicLong(0)
 
-        val workers = ConsoleMultiThreadWorkers<Unit>(20)
+        val workers = ConsoleMultiThreadWorkers<Unit>(scanThreads)
 
         fun updateGlobalLine(printer: WorkerPrinter) {
             val count = files.size

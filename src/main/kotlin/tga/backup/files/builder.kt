@@ -12,13 +12,15 @@ fun buildFileOpsByURL(url: String, params: Params): FileOps {
             yandex = buildYandexClient(params),
             profile = params.profile,
             useCache = params.remoteCache,
-            excludePatterns = params.exclude
+            excludePatterns = params.exclude,
+            scanThreads = params.scanThreads,
         )
         url.startsWith("gdrive") -> GDriveFileOps(
             gdrive = buildGDriveClient(params),
             profile = params.profile,
             useCache = params.remoteCache,
-            excludePatterns = params.exclude
+            excludePatterns = params.exclude,
+            scanThreads = params.scanThreads,
         )
         else -> LocalFileOps(excludePatterns = params.exclude)
     }
