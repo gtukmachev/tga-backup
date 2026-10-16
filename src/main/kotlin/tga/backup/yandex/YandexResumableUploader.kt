@@ -72,6 +72,7 @@ class YandexResumableUploader(
             if (!response.isSuccessful && response.code != 404) {
                 throw YandexResponseException("Error deleting resource", response, dstFilePath = path)
             }
+            if (response.code == 202) awaitOperation(response, "deleting $path")
         }
     }
 
@@ -91,6 +92,37 @@ class YandexResumableUploader(
             if (!response.isSuccessful) {
                 throw YandexResponseException("Error moving resource", response, dstFilePath = from)
             }
+            if (response.code == 202) awaitOperation(response, "moving $from -> $to")
+        }
+    }
+
+    /**
+     * Non-empty folders are moved/deleted asynchronously: Yandex answers 202 with a link to the operation.
+     * Waits until the operation finishes, so the next commands see the final state of the disk.
+     */
+    private fun awaitOperation(response: okhttp3.Response, description: String) {
+        val href = gson.fromJson(response.body?.charStream(), JsonObject::class.java)?.get("href")?.asString
+            ?: throw IllegalStateException("No operation link in the async response: $description")
+
+        var delayMs = 500L
+        while (true) {
+            val request = Request.Builder()
+                .url(href)
+                .header("Authorization", "OAuth $token")
+                .get()
+                .build()
+
+            val status = http.newCall(request).execute().use { r ->
+                if (!r.isSuccessful) throw YandexResponseException("Error getting operation status", r, dstFilePath = description)
+                gson.fromJson(r.body?.charStream(), JsonObject::class.java)?.get("status")?.asString
+            }
+
+            when (status) {
+                "success" -> return
+                "failed" -> throw IllegalStateException("Yandex operation failed: $description")
+            }
+            Thread.sleep(delayMs)
+            delayMs = (delayMs * 2).coerceAtMost(5000L)
         }
     }
 

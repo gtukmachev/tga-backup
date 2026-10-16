@@ -102,6 +102,36 @@ class BackupScriptMovesTest {
     }
 
     @Test
+    fun `m answer creates missing target folders for moves`() {
+        createFile(srcDir, "deep/new/file.txt", "content")
+        createFile(dstDir, "file.txt", "content")
+
+        provideInput("m\n")
+        BackupScript(params()).run()
+
+        assertThat(File(dstDir, "deep/new/file.txt")).exists()
+        assertThat(File(dstDir, "file.txt")).doesNotExist()
+    }
+
+    @Test
+    fun `Y answer moves nested folder tree as a whole`() {
+        createFile(srcDir, "archive/2012/a/1.jpg", "1")
+        createFile(srcDir, "archive/2012/b/2.jpg", "2")
+        createFile(dstDir, "new/archive/2012/a/1.jpg", "1")
+        createFile(dstDir, "new/archive/2012/b/2.jpg", "2")
+        createFile(dstDir, "new/keep.jpg", "k")
+        createFile(srcDir, "new/keep.jpg", "k")
+
+        provideInput("Y\n")
+        BackupScript(params()).run()
+
+        assertThat(File(dstDir, "archive/2012/a/1.jpg")).exists()
+        assertThat(File(dstDir, "archive/2012/b/2.jpg")).exists()
+        assertThat(File(dstDir, "new/archive")).doesNotExist()
+        assertThat(File(dstDir, "new/keep.jpg")).exists()
+    }
+
+    @Test
     fun `dry run does not execute moves`() {
         createFile(srcDir, "new-name/file1.txt", "aaa")
         createFile(dstDir, "old-name/file1.txt", "aaa")

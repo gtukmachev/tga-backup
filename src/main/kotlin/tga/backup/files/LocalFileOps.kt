@@ -212,7 +212,9 @@ class LocalFileOps(excludePatterns: List<String> = emptyList()) : FileOps("/", e
     }
 
     override fun moveFileOrFolder(fromPath: String, toPath: String) {
-        File(fromPath).renameTo(File(toPath))
+        if (!File(fromPath).renameTo(File(toPath))) {
+            throw java.io.IOException("Cannot move '$fromPath' to '$toPath'")
+        }
     }
 
     override fun close() {

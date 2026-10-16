@@ -291,6 +291,8 @@ class FilesComparatorTest {
         assertThat(result.toRenameFolders).containsExactly(
             FileInfo("parent/old-folder", true, 10L) to "parent/renamed-folder"
         )
+        // Nested subfolders are moved together with the renamed folder - no separate moves
+        assertThat(result.toMoveFolders).isEmpty()
         assertThat(result.toRenameFiles).isEmpty()
         assertThat(result.toMoveFiles).isEmpty()
         // Subfolders should not be in add/delete lists

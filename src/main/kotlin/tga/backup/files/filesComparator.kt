@@ -144,6 +144,9 @@ fun compareSrcAndDst(srcFiles: Set<FileInfo>, dstFiles: Set<FileInfo>, excludePa
                 
                 // Remove all nested files/folders from plans as they are now covered by folder move
                 // BUT keep excluded files - they should be handled separately
+                // (nested folder moves were detected earlier because deeper folders are processed first)
+                toMoveFolders.removeIf { it.first.name.startsWith(delFolderPath) }
+                toRenameFolders.removeIf { it.first.name.startsWith(delFolderPath) }
                 toMoveFiles.removeIf { it.first.name.startsWith(delFolderPath) }
                 toRenameFiles.removeIf { it.first.name.startsWith(delFolderPath) }
                 toDeleteFiles.removeIf { it.name.startsWith(delFolderPath) && !isExcluded(it.name) }

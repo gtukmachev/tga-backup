@@ -139,6 +139,51 @@ abstract class FileOps(
         return results
     }
 
+    /**
+     * Executes moves in parallel, wave by wave (see [buildMoveWaves]), so that dependent moves never overlap.
+     * A failure is reported as [MoveFailedException] and does not stop the other moves.
+     */
+    fun moveFiles(
+        ops: List<MoveOp>,
+        dstFolder: String,
+        dryRun: Boolean,
+        workers: ConsoleMultiThreadWorkers<Unit>
+    ): List<Result<Unit>> {
+        if (ops.isEmpty()) return emptyList()
+
+        val waves = buildMoveWaves(ops)
+        val movedCount = AtomicInteger(0)
+        val movedSize = AtomicLong(0)
+        val total = ops.size
+        val results = mutableListOf<Result<Unit>>()
+
+        waves.forEachIndexed { waveIndex, wave ->
+            val futures = wave.map { op ->
+                val fromPath = "${dstFolder}${filesSeparator}${op.from}"
+                val toPath = "${dstFolder}${filesSeparator}${op.to}"
+                val fType = if (op.isDirectory) "folder" else "file"
+                workers.submit(TaskWithStatus { printer ->
+                    printer.updateStatus("moving $fType: ${op.from}  --->  ${op.to}")
+                    try {
+                        if (!dryRun) moveFileOrFolder(fromPath, toPath)
+                    } catch (e: Throwable) {
+                        throw MoveFailedException(op, e)
+                    }
+                    movedCount.incrementAndGet()
+                    movedSize.addAndGet(op.size)
+                    workers.outputGlobalStatus(
+                        "Moving: ${formatNumber(movedCount.get())}/${formatNumber(total)} (${formatFileSize(movedSize.get())}) | wave ${waveIndex + 1}/${waves.size}"
+                    )
+                    printer.updateStatus("")
+                })
+            }
+            futures.forEach { results.add(it.get()) }
+        }
+
+        workers.waitForCompletion()
+        return results
+    }
+
     private fun deleteFilesSequential(filesList: Set<FileInfo>, dstFolder: String, dryRun: Boolean): List<Result<Unit>> {
         val results = mutableListOf<Result<Unit>>()
         val sortedFilesList = filesList.sortedDescending()

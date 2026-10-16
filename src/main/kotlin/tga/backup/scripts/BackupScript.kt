@@ -106,14 +106,23 @@ class BackupScript(params: Params) : Script(params) {
                     results += runCopying(srcFileOps, dstFileOps, params, actions.toOverrideFiles, override = true)
                 }
 
+                val failedMoves = mutableListOf<MoveOp>()
                 if (actions.hasMovesOrRenames()) {
                     logPhase("Moving/Renaming")
-                    results += runMoving(dstFileOps, params, actions)
+                    val moveResults = runMoving(dstFileOps, params, actions)
+                    failedMoves += moveResults.mapNotNull { (it.exceptionOrNull() as? MoveFailedException)?.op }
+                    results += moveResults
                 }
 
                 if (!params.noDeletion && actions.toDeleteFiles.isNotEmpty()) {
                     logPhase("Deleting Files")
-                    results += runDeleting(dstFileOps, params, actions.toDeleteFiles)
+                    // Never delete a folder that still holds the source of a failed move
+                    val toDelete = actions.toDeleteFiles.withoutFailedMoveSources(failedMoves)
+                    val skipped = actions.toDeleteFiles.size - toDelete.size
+                    if (skipped > 0) {
+                        println(style("${Icons.WARNING} WARNING: $skipped deletion(s) skipped: they contain sources of failed moves.", Color.WARNING))
+                    }
+                    results += runDeleting(dstFileOps, params, toDelete)
                 }
             }
 
@@ -194,33 +203,28 @@ class BackupScript(params: Params) : Script(params) {
     }
 
     private fun runMoving(dstFileOps: FileOps, params: Params, actions: SyncActionCases): List<Result<Unit>> {
-        val results = mutableListOf<Result<Unit>>()
-        val separator = dstFileOps.filesSeparator
+        val ops = actions.toMoveOps()
+        if (ops.isEmpty()) return emptyList()
 
-        fun moveItems(items: Set<Pair<FileInfo, String>>, type: String) {
-            if (items.isEmpty()) return
-            println("\n$type:....")
-            items.sortedBy { it.second }.forEach { (src, dst) ->
-                val fromPath = "${params.dstFolder}${separator}${src.name}"
-                val toPath = "${params.dstFolder}${separator}${dst}"
-                try {
-                    logWrap("Moving $type: $fromPath  --->  $toPath") {
-                        if (!params.dryRun) dstFileOps.moveFileOrFolder(fromPath, toPath)
-                    }
-                    results.add(Result.success(Unit))
-                } catch (e: Throwable) {
-                    results.add(Result.failure(e))
-                }
+        // Move targets may land in folders that don't exist yet (e.g. in 'm' mode, where copying is skipped)
+        val targetFolders = ops.flatMap { ancestorsOf(it.to) }.toSet()
+        val foldersToCreate = actions.toAddFiles.filter { it.isDirectory && it.name in targetFolders }.toSet()
+        if (foldersToCreate.isNotEmpty()) {
+            println("\nCreating folders for Moving:....")
+            try {
+                dstFileOps.createFolders(foldersToCreate, params.dstFolder, params.dryRun)
+            } finally {
+                println(".... folders creation finished\n")
             }
-            println(".... $type finished\n")
         }
 
-        moveItems(actions.toRenameFolders, "Folders Renaming")
-        moveItems(actions.toMoveFolders, "Folders Moving")
-        moveItems(actions.toRenameFiles, "Files Renaming")
-        moveItems(actions.toMoveFiles, "Files Moving")
-
-        return results
+        println("\nMoving/Renaming:....")
+        val workers = ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
+        try {
+            return dstFileOps.moveFiles(ops, params.dstFolder, params.dryRun, workers)
+        } finally {
+            println(".... Moving/Renaming is finished\n")
+        }
     }
 
 
