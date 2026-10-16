@@ -18,6 +18,7 @@ data class Params(
     val noDeletion: Boolean = false,
     val noOverriding: Boolean = false,
     val parallelThreads: Int = 10,
+    val moveDeleteThreads: Int = 30,
     val yandexUser: String? = null,
     val yandexToken: String? = null,
     val gdriveCredentials: String? = null,
@@ -48,6 +49,7 @@ data class Params(
                     |   noDeletion=$noDeletion,
                     |   noOverriding=$noOverriding,
                     |   parallelThreads=$parallelThreads,
+                    |   moveDeleteThreads=$moveDeleteThreads,
                     |   yandexUser='$yandexUser',
                     |   yandexToken='${yandexToken?.let { "***" } ?: ""}',
                     |   gdriveCredentials='${gdriveCredentials ?: ""}',
@@ -78,6 +80,7 @@ private val argToConfigMap = mapOf(
     "-nd" to "noDeletion", "--no-deletion" to "noDeletion",
     "-no" to "noOverriding", "--no-overriding" to "noOverriding",
     "-t" to "parallelThreads", "--threads" to "parallelThreads",
+    "-tmd" to "moveDeleteThreads", "--threads-move-delete" to "moveDeleteThreads",
     "-yu" to "yandexUser",
     "-yt" to "yandexToken",
     "-gc" to "gdriveCredentials", "--gdrive-credentials" to "gdriveCredentials",
@@ -110,7 +113,7 @@ fun readParams(args: Array<String>): Params {
                 val value = argsList[i + 1]
                 when (configKey) {
                     "exclude" -> excludeList.add(value)
-                    "parallelThreads" -> cliMap[configKey] = value.toInt()
+                    "parallelThreads", "moveDeleteThreads" -> cliMap[configKey] = value.toInt()
                     else -> cliMap[configKey] = value
                 }
                 i++
@@ -165,6 +168,7 @@ fun readParams(args: Array<String>): Params {
         noDeletion = mergedConfig.getBoolean("noDeletion"),
         noOverriding = mergedConfig.getBoolean("noOverriding"),
         parallelThreads = mergedConfig.getInt("parallelThreads"),
+        moveDeleteThreads = mergedConfig.getInt("moveDeleteThreads"),
         yandexUser = if (mergedConfig.hasPath("yandexUser")) mergedConfig.getString("yandexUser").let { if (it.isBlank()) null else it } else null,
         yandexToken = if (mergedConfig.hasPath("yandexToken")) mergedConfig.getString("yandexToken").let { if (it.isBlank()) null else it } else null,
         gdriveCredentials = if (mergedConfig.hasPath("gdriveCredentials")) mergedConfig.getString("gdriveCredentials").let { if (it.isBlank()) null else it } else null,

@@ -194,7 +194,7 @@ class BackupScript(params: Params) : Script(params) {
         }
 
         println("\nDeleting:....")
-        val workers = ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
+        val workers = ConsoleMultiThreadWorkers<Unit>(params.moveDeleteThreads)
         try {
             return dstFileOps.deleteFiles(toDelete, params.dstFolder, params.dryRun, params.noDeletion, workers)
         } finally {
@@ -219,7 +219,7 @@ class BackupScript(params: Params) : Script(params) {
         }
 
         println("\nMoving/Renaming:....")
-        val workers = ConsoleMultiThreadWorkers<Unit>(params.parallelThreads)
+        val workers = ConsoleMultiThreadWorkers<Unit>(params.moveDeleteThreads)
         try {
             return dstFileOps.moveFiles(ops, params.dstFolder, params.dryRun, workers)
         } finally {

@@ -25,6 +25,7 @@ fun printLogo() {
             |      -dr, --destination-root - destination root folder
             |      -p,  --path             - relative path to sync (default: *)
             |      -t,  --threads          - number of parallel threads (default: 10)
+            |      -tmd, --threads-move-delete - number of parallel threads for Move and Delete phases (default: 30)
             |      -nd, --no-deletion      - skip deletion phase (will be planned but not executed)
             |      -no, --no-overriding    - skip overriding phase (will be planned but not executed)
             |      -x,  --exclude          - exclude files matching pattern (can be used multiple times)

@@ -30,6 +30,13 @@ class ParamsTest {
     }
 
     @Test
+    fun `test move-delete threads parameter`() {
+        assertThat(readParams(arrayOf("-sr", "src", "-dr", "dst", "-tmd", "7")).moveDeleteThreads).isEqualTo(7)
+        assertThat(readParams(arrayOf("-sr", "src", "-dr", "dst", "--threads-move-delete", "8")).moveDeleteThreads).isEqualTo(8)
+        assertThat(readParams(arrayOf("-sr", "src", "-dr", "dst")).moveDeleteThreads).isEqualTo(30)
+    }
+
+    @Test
     fun `test readParams with default path`() {
         val args = arrayOf("-sr", "src_root", "-dr", "dst_root")
         val params = readParams(args)
